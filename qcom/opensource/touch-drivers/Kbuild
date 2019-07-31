@@ -364,5 +364,3 @@ ifneq ($(CONFIG_ARCH_PINEAPPLE), y)
 	endif
 
 endif # pineapple
-
-CDEFINES += -DBUILD_TIMESTAMP=\"$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')\"

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
  */
 
@@ -20,7 +20,7 @@
 #include <linux/dma-fence-array.h>
 #include <linux/sync_file.h>
 #include <uapi/sync_fence/qcom_sync_file.h>
-#include <linux/soc/qcom/qcom_sync_file.h>
+#include <qcom_sync_file.h>
 
 #define CLASS_NAME	"sync"
 #define DRV_NAME	"spec_sync"

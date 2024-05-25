@@ -9,7 +9,7 @@ ifeq ($(TARGET_KERNEL_DLKM_DISABLE), true)
 endif
 
 ifeq ($(MM_DRV_DLKM_ENABLE), true)
-	ifeq ($(filter taro blair, $(TARGET_BOARD_PLATFORM)),)
+	ifeq ($(filter taro parrot blair, $(TARGET_BOARD_PLATFORM)),)
 		PRODUCT_PACKAGES += sync_fence.ko msm_hw_fence.ko
 	endif
 endif

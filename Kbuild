@@ -53,7 +53,7 @@ endif
 
 ifeq ($(CONFIG_ARCH_PARROT), y)
 	include $(TOUCH_ROOT)/config/gki_parrottouch.conf
-	LINUX_INC += -include $(TOUCH_ROOT)/config/gki_parrotconf.h
+	LINUX_INC += -include $(TOUCH_ROOT)/config/gki_parrottouchconf.h
 endif
 
 

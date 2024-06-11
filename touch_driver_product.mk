@@ -43,6 +43,8 @@ ifeq ($(TOUCH_DLKM_ENABLE),  true)
                 PRODUCT_PACKAGES += $(KERNEL_MODULES_OUT)/synaptics_tcm_ts.ko
         else ifeq ($(TARGET_BOARD_PLATFORM), parrot)
                 PRODUCT_PACKAGES += $(KERNEL_MODULES_OUT)/nt36xxx-i2c.ko \
+			$(KERNEL_MODULES_OUT)/goodix_ts.ko \
+			$(KERNEL_MODULES_OUT)/qts.ko
         else
                 PRODUCT_PACKAGES += $(KERNEL_MODULES_OUT)/nt36xxx-i2c.ko \
                         $(KERNEL_MODULES_OUT)/goodix_ts.ko \

@@ -19,7 +19,7 @@
  *
  ******************************************************************************/
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  ******************************************************************************/
 
@@ -40,6 +40,8 @@
 #define SN1xx_MAJOR_VER             0x10
 #define SN220_ROM_VER               0x01
 #define SN220_MAJOR_VER             0x01
+#define SN300_ROM_VER               0x02
+#define SN300_MAJOR_VER             0x20
 #define FW_ROM_CODE_VER_OFFSET      4
 #define FW_MAJOR_VER_OFFSET         7
 #define GET_VERSION_RSP_CHIP_TYPE_OFFSET	3
@@ -71,6 +73,7 @@
 enum chip_types {
 	CHIP_SN1XX = 0x01,
 	CHIP_SN220 = 0x02,
+	CHIP_SN300 = 0xd3,
 	CHIP_UNKNOWN = 0xFF,
 };
 

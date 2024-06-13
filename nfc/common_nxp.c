@@ -19,7 +19,7 @@
  *
  ******************************************************************************/
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  ******************************************************************************/
 #include "common.h"
@@ -220,6 +220,9 @@ static enum chip_types get_nfcc_chip_type(struct nfc_dev *nfc_dev)
 			chip_type = CHIP_SN1XX;
 		else if (rom_version == SN220_ROM_VER && major_version == SN220_MAJOR_VER)
 			chip_type = CHIP_SN220;
+		else if (rom_version == SN300_ROM_VER && major_version == SN300_MAJOR_VER)
+			chip_type = CHIP_SN300;
+
 		pr_debug("NxpDrv: %s:NCI  Core Reset ntf 0x%02x%02x%02x%02x\n",
 			__func__, rsp[0], rsp[1], rsp[2], rsp[3]);
 
@@ -256,14 +259,13 @@ static bool validate_download_gpio(struct nfc_dev *nfc_dev, enum chip_types chip
 		pr_err("NxpDrv: %s nfc devices structure is null\n", __func__);
 		return status;
 	}
+
 	nfc_gpio = &nfc_dev->configs.gpio;
 	if (chip_type == CHIP_SN1XX) {
 		/* gpio should be configured for SN1xx */
 		status = gpio_is_valid(nfc_gpio->dwl_req);
-	} else if (chip_type == CHIP_SN220) {
-		/* gpio should not be configured for SN220 */
-		set_valid_gpio(nfc_gpio->dwl_req, 0);
-		gpio_free(nfc_gpio->dwl_req);
+	} else if ((chip_type == CHIP_SN220) || (chip_type == CHIP_SN300)) {
+		/* gpio should not be configured for SN220, SN300 */
 		nfc_gpio->dwl_req = -EINVAL;
 		status = true;
 	}

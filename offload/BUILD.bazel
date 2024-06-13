@@ -6,3 +6,6 @@ define_offload("pineapple", "perf")
 
 define_offload("sun", "consolidate")
 define_offload("sun", "perf")
+
+define_offload("parrot", "consolidate")
+define_offload("parrot", "perf")

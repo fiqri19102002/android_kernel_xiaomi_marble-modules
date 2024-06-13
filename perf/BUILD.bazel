@@ -6,3 +6,6 @@ define_perf("pineapple", "perf")
 
 define_perf("sun", "consolidate")
 define_perf("sun", "perf")
+
+define_perf("parrot", "consolidate")
+define_perf("parrot", "perf")

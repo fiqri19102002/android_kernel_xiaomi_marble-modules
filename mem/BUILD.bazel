@@ -7,6 +7,9 @@ define_mem("pineapple", "perf")
 define_mem("sun", "consolidate")
 define_mem("sun", "perf")
 
+define_mem("parrot", "consolidate")
+define_mem("parrot", "perf")
+
 package(
 	default_visibility = [
 	"//visibility:public", ],

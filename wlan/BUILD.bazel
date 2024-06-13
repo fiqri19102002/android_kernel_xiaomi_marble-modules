@@ -6,3 +6,6 @@ define_wlan("pineapple", "perf")
 
 define_wlan("sun", "consolidate")
 define_wlan("sun", "perf")
+
+define_wlan("parrot", "consolidate")
+define_wlan("parrot", "perf")

@@ -5,3 +5,6 @@ define_shs("pineapple", "perf")
 
 define_shs("sun", "consolidate")
 define_shs("sun", "perf")
+
+define_shs("parrot", "consolidate")
+define_shs("parrot", "perf")

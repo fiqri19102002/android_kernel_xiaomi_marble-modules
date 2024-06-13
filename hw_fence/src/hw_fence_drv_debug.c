@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -17,7 +17,7 @@
 /* event dump data includes one "32-bit" element + "|" separator */
 #define HW_FENCE_MAX_DATA_PER_EVENT_DUMP (HW_FENCE_EVENT_MAX_DATA * 9)
 
-#define HFENCE_EVT_MSG "[%d][cpu:%d][%lu] data[%d]:%s\n"
+#define HFENCE_EVT_MSG "[%d][cpu:%d][%llu] data[%d]:%s\n"
 
 u32 msm_hw_fence_debug_level = HW_FENCE_PRINTK;
 
@@ -51,7 +51,8 @@ static int _get_debugfs_input_client(struct file *file,
 	int client_id;
 
 	if (!file || !file->private_data) {
-		HWFNC_ERR("unexpected data %d\n", !file);
+		HWFNC_ERR("unexpected data file:0x%pK private_data:0x%pK\n", file,
+			file ? file->private_data : NULL);
 		return -EINVAL;
 	}
 	*drv_data = file->private_data;
@@ -277,7 +278,8 @@ static ssize_t hw_fence_dbg_tx_and_signal_clients_wr(struct file *file,
 	int signal_id, ret;
 
 	if (!file || !file->private_data) {
-		HWFNC_ERR("unexpected data %d\n", file);
+		HWFNC_ERR("unexpected data file:0x%pK private_data:0x%pK\n", file,
+			file ? file->private_data : NULL);
 		return -EINVAL;
 	}
 	drv_data = file->private_data;
@@ -447,7 +449,7 @@ static ssize_t hw_fence_dbg_create_wr(struct file *file,
 		return -ENOMEM;
 	}
 
-	snprintf(dma_fence->name, HW_FENCE_NAME_SIZE, "hwfence:id:%d:ctx=%lu:seqno:%lu",
+	snprintf(dma_fence->name, HW_FENCE_NAME_SIZE, "hwfence:id:%d:ctx=%llu:seqno:%llu",
 		client_id, client_info->dma_context, hw_fence_dbg_seqno);
 
 	spin_lock_init(fence_lock);
@@ -474,7 +476,7 @@ static ssize_t hw_fence_dbg_create_wr(struct file *file,
 }
 
 #define HFENCE_TBL_MSG \
-	"[%d]hfence[%d] v:%d err:%d ctx:%d seqno:%d wait:0x%llx alloc:%d f:0x%lx tt:%llu wt:%llu\n"
+	"[%d]hfence[%d] v:%d err:%d ctx:%llu seqno:%llu wait:0x%llx alloc:%d f:0x%llx tt:%llu wt:%llu\n"
 
 static inline int _dump_fence(struct msm_hw_fence *hw_fence, char *buf, int len, int max_size,
 		u32 index, u32 cnt)
@@ -508,10 +510,10 @@ static int dump_single_entry(struct hw_fence_driver_data *drv_data, char *buf, u
 
 	hw_fence = msm_hw_fence_find(drv_data, NULL, context, seqno, &hash);
 	if (!hw_fence) {
-		HWFNC_ERR("no valid hfence found for context:%lu seqno:%lu hash:%lu",
+		HWFNC_ERR("no valid hfence found for context:%llu seqno:%llu hash:%llu",
 				context, seqno, hash);
 		len = scnprintf(buf + len, max_size - len,
-			"no valid hfence found for context:%lu seqno:%lu hash:%lu\n",
+			"no valid hfence found for context:%llu seqno:%llu hash:%llu\n",
 			context, seqno, hash);
 
 		goto exit;
@@ -557,7 +559,7 @@ static inline int _dump_event(struct msm_hw_fence_event *event, char *buf, int l
 
 	memset(&data, 0, sizeof(data));
 	if (event->data_cnt > HW_FENCE_EVENT_MAX_DATA) {
-		HWFNC_ERR("event[%d] has invalid data_cnt:%lu greater than max_data_cnt:%lu\n",
+		HWFNC_ERR("event[%d] has invalid data_cnt:%u greater than max_data_cnt:%u\n",
 			index, event->data_cnt, HW_FENCE_EVENT_MAX_DATA);
 		data_cnt = HW_FENCE_EVENT_MAX_DATA;
 	} else {
@@ -566,7 +568,7 @@ static inline int _dump_event(struct msm_hw_fence_event *event, char *buf, int l
 
 	for (i = 0; i < data_cnt; i++)
 		tmp_len += scnprintf(data + tmp_len, HW_FENCE_MAX_DATA_PER_EVENT_DUMP - tmp_len,
-			"%lx|", event->data[i]);
+			"%x|", event->data[i]);
 
 	ret = scnprintf(buf + len, max_size - len, HFENCE_EVT_MSG, index, event->cpu, event->time,
 		event->data_cnt, data);
@@ -595,7 +597,8 @@ static ssize_t hw_fence_dbg_dump_events_rd(struct file *file, char __user *user_
 	static bool wraparound;
 
 	if (!file || !file->private_data) {
-		HWFNC_ERR("unexpected data %d\n", file);
+		HWFNC_ERR("unexpected data file:0x%pK private_data:0x%pK\n", file,
+			file ? file->private_data : NULL);
 		return -EINVAL;
 	}
 	drv_data = file->private_data;
@@ -615,7 +618,7 @@ static ssize_t hw_fence_dbg_dump_events_rd(struct file *file, char __user *user_
 	}
 
 	if (user_buf_size < entry_size) {
-		HWFNC_ERR("Not enough buff size:%d to dump entries:%d\n", user_buf_size,
+		HWFNC_ERR("Not enough buff size:%zu to dump entries:%d\n", user_buf_size,
 			entry_size);
 		return -EINVAL;
 	}
@@ -652,7 +655,7 @@ static ssize_t hw_fence_dbg_dump_events_rd(struct file *file, char __user *user_
 	HWFNC_DBG_H("-- dump_events: index:%d qtime:%llu\n", index, hw_fence_get_qtime(drv_data));
 
 	if (len <= 0 || len > user_buf_size) {
-		HWFNC_ERR("len:%d invalid buff size:%d\n", len, user_buf_size);
+		HWFNC_ERR("len:%d invalid buff size:%zu\n", len, user_buf_size);
 		len = 0;
 		goto exit;
 	}
@@ -690,7 +693,8 @@ static ssize_t hw_fence_dbg_dump_queues_wr(struct file *file, const char __user 
 	struct msm_hw_fence_queue_payload *read_ptr_payload;
 
 	if (!file || !file->private_data) {
-		HWFNC_ERR("unexpected data %d\n", file);
+		HWFNC_ERR("unexpected data file:0x%pK private_data:0x%pK\n", file,
+			file ? file->private_data : NULL);
 		return -EINVAL;
 	}
 	drv_data = file->private_data;
@@ -726,7 +730,7 @@ static ssize_t hw_fence_dbg_dump_queues_wr(struct file *file, const char __user 
 		timestamp = (u64)readl_relaxed(&read_ptr_payload->timestamp_lo) |
 			((u64)readl_relaxed(&read_ptr_payload->timestamp_hi) << 32);
 
-		HWFNC_DBG_L("rx[%d]: hash:%d ctx:%llu seqno:%llu f:%llu d:%llu err:%u time:%llu\n",
+		HWFNC_DBG_L("rx[%d]: hash:%llu ctx:%llu seqno:%llu f:%llu d:%llu err:%u time:%llu\n",
 			i, hash, ctx_id, seqno, flags, client_data, error, timestamp);
 	}
 
@@ -743,7 +747,7 @@ static ssize_t hw_fence_dbg_dump_queues_wr(struct file *file, const char __user 
 		error = readl_relaxed(&read_ptr_payload->error);
 		timestamp = (u64)readl_relaxed(&read_ptr_payload->timestamp_lo) |
 			((u64)readl_relaxed(&read_ptr_payload->timestamp_hi) << 32);
-		HWFNC_DBG_L("tx[%d]: hash:%d ctx:%llu seqno:%llu f:%llu err:%u time:%llu\n",
+		HWFNC_DBG_L("tx[%d]: hash:%llu ctx:%llu seqno:%llu f:%llu err:%u time:%llu\n",
 			i, hash, ctx_id, seqno, flags, error, timestamp);
 	}
 
@@ -772,7 +776,8 @@ static ssize_t hw_fence_dbg_dump_table_rd(struct file *file, char __user *user_b
 	static u32 index, cnt;
 
 	if (!file || !file->private_data) {
-		HWFNC_ERR("unexpected data %d\n", file);
+		HWFNC_ERR("unexpected data file:0x%pK private_data:0x%pK\n", file,
+			file ? file->private_data : NULL);
 		return -EINVAL;
 	}
 	drv_data = file->private_data;
@@ -789,7 +794,7 @@ static ssize_t hw_fence_dbg_dump_table_rd(struct file *file, char __user *user_b
 	}
 
 	if (user_buf_size < entry_size) {
-		HWFNC_ERR("Not enough buff size:%d to dump entries:%d\n", user_buf_size,
+		HWFNC_ERR("Not enough buff size:%lu to dump entries:%d\n", user_buf_size,
 			entry_size);
 		return -EINVAL;
 	}
@@ -803,7 +808,7 @@ static ssize_t hw_fence_dbg_dump_table_rd(struct file *file, char __user *user_b
 		dump_full_table(drv_data, buf, &index, &cnt, max_size, entry_size);
 
 	if (len <= 0 || len > user_buf_size) {
-		HWFNC_ERR("len:%d invalid buff size:%d\n", len, user_buf_size);
+		HWFNC_ERR("len:%d invalid buff size:%lu\n", len, user_buf_size);
 		len = 0;
 		goto exit;
 	}
@@ -842,13 +847,14 @@ static ssize_t hw_fence_dbg_dump_table_wr(struct file *file,
 	int num_input_params;
 
 	if (!file || !file->private_data) {
-		HWFNC_ERR("unexpected data %d\n", file);
+		HWFNC_ERR("unexpected data file:0x%pK private_data:0x%pK\n", file,
+			file ? file->private_data : NULL);
 		return -EINVAL;
 	}
 	drv_data = file->private_data;
 
 	if (user_buf_size >= sizeof(buf)) {
-		HWFNC_ERR("wrong size:%d size:%d\n", user_buf_size, sizeof(buf));
+		HWFNC_ERR("wrong size:%lu size:%lu\n", user_buf_size, sizeof(buf));
 		return -EFAULT;
 	}
 
@@ -858,7 +864,7 @@ static ssize_t hw_fence_dbg_dump_table_wr(struct file *file,
 	buf[user_buf_size] = 0; /* end of string */
 
 	/* read the input params */
-	num_input_params = sscanf(buf, "%lu %lu", &param_0, &param_1);
+	num_input_params = sscanf(buf, "%llu %llu", &param_0, &param_1);
 
 	if (num_input_params == 2) { /* if debugfs receives two input params */
 		drv_data->debugfs_data.context_rd = param_0;
@@ -911,7 +917,8 @@ static ssize_t hw_fence_dbg_create_join_fence(struct file *file,
 	spinlock_t **fences_lock = NULL;
 
 	if (!file || !file->private_data) {
-		HWFNC_ERR("unexpected data %d\n", file);
+		HWFNC_ERR("unexpected data file:0x%pK private_data:0x%pK\n", file,
+			file ? file->private_data : NULL);
 		return -EINVAL;
 	}
 	drv_data = file->private_data;

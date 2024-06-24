@@ -12,6 +12,9 @@ def define_modules(target, variant):
                 "//vendor/qcom/opensource/securemsm-kernel:{}_smcinvoke_dlkm".format(tv)
        ]
 
+    if target == "parrot":
+       copts.append("-DNFC_CLK_REQ_GPIO_WAKEUP")
+
     ddk_module(
         name = "{}_nxp-nci".format(tv),
         out = "nxp-nci.ko",

@@ -462,7 +462,9 @@ long nfc_dev_compat_ioctl(struct file *pfile, unsigned int cmd,
 int nfc_post_init(struct nfc_dev *nfc_dev)
 {
 	int ret=0;
+#ifndef NFC_CLK_REQ_GPIO_WAKEUP
 	unsigned int clkreq_gpio = 0;
+#endif
 	static int post_init_success;
 	struct platform_configs nfc_configs;
 	struct platform_gpio *nfc_gpio;
@@ -488,6 +490,7 @@ int nfc_post_init(struct nfc_dev *nfc_dev)
 			__func__, nfc_gpio->dwl_req);
 	}
 
+#ifndef NFC_CLK_REQ_GPIO_WAKEUP
         /* Read clkreq GPIO number from device tree*/
         ret = of_property_read_u32_index(nfc_dev->i2c_dev.client->dev.of_node, DTS_CLKREQ_GPIO_STR, 1, &clkreq_gpio);
         if (ret < 0) {
@@ -502,7 +505,7 @@ int nfc_post_init(struct nfc_dev *nfc_dev)
         } else {
                 pr_info("NxpDrv: %s clkreq gpio %d successfully setup for wakeup capable\n", __func__, clkreq_gpio);
         }
-
+#endif
 	ret = nfcc_hw_check(nfc_dev);
 	if (ret || nfc_dev->nfc_state == NFC_STATE_UNKNOWN) {
 		pr_err("NxpDrv: nfc hw check failed ret %d\n", ret);

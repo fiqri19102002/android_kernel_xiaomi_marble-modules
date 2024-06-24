@@ -1830,6 +1830,8 @@ int rmnet_frag_process_next_hdr_packet(struct rmnet_frag_descriptor *frag_desc,
 			rmnet_recycle_frag_descriptor(frag_desc, port);
 		break;
 	case RMNET_MAP_HEADER_TYPE_CSUM_OFFLOAD:
+		rmnet_module_hook_perf_non_coal_stat(priv->mux_id, len);
+
 		if (unlikely(!(frag_desc->dev->features & NETIF_F_RXCSUM))) {
 			priv->stats.csum_sw++;
 		} else if (csum_hdr->csum_valid_required) {

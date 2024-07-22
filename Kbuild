@@ -56,6 +56,10 @@ ifeq ($(CONFIG_ARCH_PARROT), y)
 	LINUX_INC += -include $(TOUCH_ROOT)/config/gki_parrottouchconf.h
 endif
 
+ifeq ($(CONFIG_ARCH_RAVELIN), y)
+	include $(TOUCH_ROOT)/config/gki_ravelintouch.conf
+	LINUX_INC += -include $(TOUCH_ROOT)/config/gki_ravelintouchconf.h
+endif
 
 LINUX_INC +=	-Iinclude/linux \
 		-Iinclude/linux/drm \

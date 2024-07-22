@@ -3,7 +3,7 @@
  * Copyright (C) 2016-2019, STMicroelectronics Limited.
  * Authors: AMG(Analog Mems Group) <marco.cali@st.com>
  *
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -409,37 +409,71 @@ int checkLimitsGapOffsets(short *data, int row, int column, int threshold,
   * in order to satisfy different scenarios
   * @{
   */
-int production_test_ito(char *path_limits, TestToDo *todo);
-int production_test_initialization(u8 type);
-int production_test_main(char *pathThresholds, int stop_on_fail, int saveInit,
-			 TestToDo *todo, u8 mpflag);
-int production_test_ms_raw(char *path_limits, int stop_on_fail, TestToDo *todo);
-int production_test_ms_raw_lp(char *path_limits, int stop_on_fail,
-			      TestToDo *todo);
-int production_test_ms_cx(char *path_limits, int stop_on_fail, TestToDo *todo);
-int production_test_ms_cx_lp(char *path_limits, int stop_on_fail,
-			TestToDo *todo);
-int production_test_ss_raw(char *path_limits, int stop_on_fail, TestToDo *todo);
-int production_test_ss_raw_lp(char *path_limits, int stop_on_fail,
-			      TestToDo *todo);
-int production_test_ss_ix_cx(char *path_limits, int stop_on_fail,
-			     TestToDo *todo);
-int production_test_ss_ix_cx_lp(char *path_limits, int stop_on_fail,
-			     TestToDo *todo);
-int production_test_data(char *path_limits, int stop_on_fail, TestToDo *todo);
-int production_test_ms_key_cx(char *path_limits, int stop_on_fail,
-			      TestToDo *todo);
-int production_test_ms_key_raw(char *path_limits);
+int production_test_ito(struct fts_ts_info *info, char *path_limits, TestToDo *todo);
+int production_test_initialization(struct fts_ts_info *info, u8 type);
+int production_test_main(struct fts_ts_info *info,
+				char *pathThresholds,
+				int stop_on_fail,
+				int saveInit,
+				TestToDo *todo,
+				u8 mpflag);
+int production_test_ms_raw(struct fts_ts_info *info,
+				char *path_limits,
+				int stop_on_fail,
+				TestToDo *todo);
+int production_test_ms_raw_lp(struct fts_ts_info *info,
+				char *path_limits,
+				int stop_on_fail,
+				TestToDo *todo);
+int production_test_ms_cx(struct fts_ts_info *info,
+				char *path_limits,
+				int stop_on_fail,
+				TestToDo *todo);
+int production_test_ms_cx_lp(struct fts_ts_info *info,
+				char *path_limits,
+				int stop_on_fail,
+				TestToDo *todo);
+int production_test_ss_raw(struct fts_ts_info *info,
+				char *path_limits,
+				int stop_on_fail,
+				TestToDo *todo);
+int production_test_ss_raw_lp(struct fts_ts_info *info,
+				char *path_limits,
+				int stop_on_fail,
+				TestToDo *todo);
+int production_test_ss_ix_cx(struct fts_ts_info *info,
+				char *path_limits,
+				int stop_on_fail,
+				TestToDo *todo);
+int production_test_ss_ix_cx_lp(struct fts_ts_info *info,
+				char *path_limits,
+				int stop_on_fail,
+				TestToDo *todo);
+int production_test_data(struct fts_ts_info *info,
+				char *path_limits,
+				int stop_on_fail,
+				TestToDo *todo);
+int production_test_ms_key_cx(struct fts_ts_info *info,
+				char *path_limits,
+				int stop_on_fail,
+				TestToDo *todo);
+int production_test_ms_key_raw(struct fts_ts_info *info,
+				char *path_limits);
 /** @}*/
 
 /**
   * @addtogroup limit_file
   * @{
   */
-int parseProductionTestLimits(char *path, LimitFile *file, char *label,
-			      int **data, int *row, int *column);
+int parseProductionTestLimits(struct fts_ts_info *info,
+				char *path,
+				LimitFile *file,
+				char *label,
+				int **data,
+				int *row,
+				int *column);
 int readLine(char *data, char *line, int size, int *n);
-int getLimitsFile(char *path, LimitFile *file);
+int getLimitsFile(struct fts_ts_info *info, char *path, LimitFile *file);
 int freeLimitsFile(LimitFile *file);
 int freeCurrentLimitsFile(void);
 /**@}*/

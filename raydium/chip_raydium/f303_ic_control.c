@@ -3,6 +3,7 @@
  * Raydium TouchScreen driver.
  *
  * Copyright (c) 2021  Raydium tech Ltd.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -247,7 +248,7 @@ unsigned char hardware_reset_3x(unsigned char u8_enable_ic_block)
 	g_u8_mute_i2c_err_log = TRUE;
 	if (disable_i2c_deglitch_3x() == ERROR) {
 		/*DEBUGOUT("[hardware_reset_3x] disable_i2c_deglitch_3x NG!\r\n");*/
-		DEBUGOUT("[%s] DI2CDG NG!\r\n, __func__");
+		DEBUGOUT("[%s] DI2CDG NG!\r\n", __func__);
 		g_u8_mute_i2c_err_log = FALSE;
 		return ERROR;
 	}

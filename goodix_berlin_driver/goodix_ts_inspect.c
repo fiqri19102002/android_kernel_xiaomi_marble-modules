@@ -1,6 +1,7 @@
 /*
  * Goodix Touchscreen Driver
  * Copyright (C) 2020 - 2021 Goodix, Inc.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -2882,7 +2883,7 @@ static void goodix_put_test_result(struct goodix_ts_test *ts_test,
 		TS_RAWDATA_RESULT_MAX);
 	goodix_strncat(ts_test->test_info, "\n",
 		TS_RAWDATA_RESULT_MAX);
-	strlcpy(info->result, ts_test->test_info, TS_RAWDATA_RESULT_MAX - 1);
+	strscpy(info->result, ts_test->test_info, TS_RAWDATA_RESULT_MAX - 1);
 
 #ifdef SAVE_IN_CSV
 	/* save result to file */
@@ -2908,7 +2909,7 @@ static int goodix_do_inspect(struct goodix_ts_core *cd, struct ts_rawdata_info *
 	ret = goodix_tptest_prepare(ts_test);
 	if (ret < 0) {
 		ts_err("Failed to prepare TP test, exit");
-		strlcpy(info->result, "[FAIL]-0F-software reason\n",
+		strscpy(info->result, "[FAIL]-0F-software reason\n",
 				TS_RAWDATA_RESULT_MAX - 1);
 		goto exit_finish;
 	}

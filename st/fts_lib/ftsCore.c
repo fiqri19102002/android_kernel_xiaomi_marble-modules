@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 /*
   *
@@ -35,29 +35,6 @@
 #include "ftsTime.h"
 #include "ftsTool.h"
 
-/** @addtogroup system_info
-  * @{
-  */
-SysInfo systemInfo;	/* /< Global System Info variable, accessible in all the
-			 * driver */
-/** @}*/
-
-static int reset_gpio = GPIO_NOT_DEFINED;	/* /< gpio number of the rest
-						 * pin, the value is
-						 *  GPIO_NOT_DEFINED if the
-						 * reset pin is not connected */
-static int system_reseted_up;	/* /< flag checked during resume to
-					 * understand if there was a system
-					 * reset and restore the proper state */
-static int system_reseted_down;	/* /< flag checked during suspend to
-					 * understand if there was a system
-					 * reset and restore the proper state */
-static int disable_irq_count = 1;	/* /< count the number of call to
-					 * disable_irq, start with 1 because at
-					 * the boot IRQ are already disabled */
-struct mutex fts_int;	/* /< mutex to control the access to the
-			 * disable_irq_counter */
-
 
 /**
   * Initialize core variables of the library.
@@ -72,9 +49,13 @@ int initCore(struct fts_ts_info *info)
 
 	logError(0, "%s %s: Initialization of the Core...\n", tag, __func__);
 	ret |= openChannel(info);
-	ret |= resetErrorList();
-	ret |= initTestToDo();
-	setResetGpio(info->board->reset_gpio);
+	if (info->is_primary) {
+		ret |= resetErrorList();
+		ret |= initTestToDo();
+	}
+	info->reset_gpio = info->board->reset_gpio;
+	logError(1, "%s setResetGpio: reset_gpio = %d\n", tag, info->reset_gpio);
+
 	if (ret < OK)
 		logError(0, "%s %s: Initialization Core ERROR %08X!\n", tag,
 			 __func__, ret);
@@ -84,23 +65,12 @@ int initCore(struct fts_ts_info *info)
 }
 
 /**
-  * Set the reset_gpio variable with the actual gpio number of the board link to
-  *the reset pin
-  * @param gpio gpio number link to the reset pin of the IC
-  */
-void setResetGpio(int gpio)
-{
-	reset_gpio = gpio;
-	logError(1, "%s setResetGpio: reset_gpio = %d\n", tag, reset_gpio);
-}
-
-/**
   * Perform a system reset of the IC.
   * If the reset pin is associated to a gpio, the function execute an hw reset
   * (toggling of reset pin) otherwise send an hw command to the IC
   * @return OK if success or an error code which specify the type of error
   */
-int fts_system_reset(void)
+int fts_system_reset(struct fts_ts_info *info)
 {
 	u8 readData[FIFO_EVENT_SIZE];
 	int event_to_search;
@@ -113,24 +83,24 @@ int fts_system_reset(void)
 	logError(0, "%s System resetting...\n", tag);
 	for (i = 0; i < RETRY_SYSTEM_RESET && res < 0; i++) {
 		resetErrorList();
-		fts_disableInterrupt();	/* disable interrupt before resetting to
+		fts_disableInterrupt(info);	/* disable interrupt before resetting to
 					 * be able to get boot events */
 
-		if (reset_gpio == GPIO_NOT_DEFINED)
-			res = fts_writeU8UX(FTS_CMD_HW_REG_W, ADDR_SIZE_HW_REG,
+		if (info->board->reset_gpio == GPIO_NOT_DEFINED)
+			res = fts_writeU8UX(info, FTS_CMD_HW_REG_W, ADDR_SIZE_HW_REG,
 					    ADDR_SYSTEM_RESET, data, ARRAY_SIZE(
 						    data));
 		else {
-			gpio_set_value(reset_gpio, 0);
+			gpio_set_value(info->board->reset_gpio, 0);
 			msleep(10);
-			gpio_set_value(reset_gpio, 1);
+			gpio_set_value(info->board->reset_gpio, 1);
 			res = OK;
 		}
 		if (res < OK)
 			logError(1, "%s fts_system_reset: ERROR %08X\n", tag,
 				 ERROR_BUS_W);
 		else {
-			res = pollForEvent(&event_to_search, 1, readData,
+			res = pollForEvent(info, &event_to_search, 1, readData,
 					   GENERAL_TIMEOUT);
 			if (res < OK)
 				logError(1, "%s fts_system_reset: ERROR %08X\n",
@@ -144,8 +114,8 @@ int fts_system_reset(void)
 		return res | ERROR_SYSTEM_RESET_FAIL;
 	} else {
 		logError(0, "%s System reset DONE!\n", tag);
-		system_reseted_down = 1;
-		system_reseted_up = 1;
+		info->system_reseted_down = 1;
+		info->system_reseted_up = 1;
 		return OK;
 	}
 }
@@ -154,18 +124,18 @@ int fts_system_reset(void)
   * Return the value of system_resetted_down.
   * @return the flag value: 0 if not set, 1 if set
   */
-int isSystemResettedDown(void)
+int isSystemResettedDown(struct fts_ts_info *info)
 {
-	return system_reseted_down;
+	return info->system_reseted_down;
 }
 
 /**
   * Return the value of system_resetted_up.
   * @return the flag value: 0 if not set, 1 if set
   */
-int isSystemResettedUp(void)
+int isSystemResettedUp(struct fts_ts_info *info)
 {
-	return system_reseted_up;
+	return info->system_reseted_up;
 }
 
 
@@ -173,18 +143,18 @@ int isSystemResettedUp(void)
   * Set the value of system_reseted_down flag
   * @param val value to write in the flag
   */
-void setSystemResetedDown(int val)
+void setSystemResetedDown(struct fts_ts_info *info, int val)
 {
-	system_reseted_down = val;
+	info->system_reseted_down = val;
 }
 
 /**
   * Set the value of system_reseted_up flag
   * @param val value to write in the flag
   */
-void setSystemResetedUp(int val)
+void setSystemResetedUp(struct fts_ts_info *info, int val)
 {
-	system_reseted_up = val;
+	info->system_reseted_up = val;
 }
 
 
@@ -205,7 +175,7 @@ void setSystemResetedUp(int val)
   * @param time_to_wait time to wait before going in timeout
   * @return OK if success or an error code which specify the type of error
   */
-int pollForEvent(int *event_to_search, int event_bytes, u8 *readData, int
+int pollForEvent(struct fts_ts_info *info, int *event_to_search, int event_bytes, u8 *readData, int
 		 time_to_wait)
 {
 	int i, find, retry, count_err;
@@ -223,7 +193,7 @@ int pollForEvent(int *event_to_search, int event_bytes, u8 *readData, int
 
 	startStopWatch(&clock);
 	while (find != 1 && retry < time_to_count &&
-		fts_writeReadU8UX(cmd[0],
+		fts_writeReadU8UX(info, cmd[0],
 				  0, 0,
 				  readData,
 				  FIFO_EVENT_SIZE,
@@ -236,7 +206,7 @@ int pollForEvent(int *event_to_search, int event_bytes, u8 *readData, int
 							     temp));
 			memset(temp, 0, 128);
 			count_err++;
-			err_handling = errorHandler(readData, FIFO_EVENT_SIZE);
+			err_handling = errorHandler(info, readData, FIFO_EVENT_SIZE);
 			if ((err_handling & 0xF0FF0000) ==
 			    ERROR_HANDLER_STOP_PROC) {
 				logError(1,
@@ -257,8 +227,8 @@ int pollForEvent(int *event_to_search, int event_bytes, u8 *readData, int
 				logError(1,
 					 "%s pollForEvent: Unmanned Controller Ready Event! Setting reset flags...\n",
 					 tag);
-				setSystemResetedUp(1);
-				setSystemResetedDown(1);
+				setSystemResetedUp(info, 1);
+				setSystemResetedDown(info, 1);
 			}
 		}
 
@@ -307,7 +277,7 @@ int pollForEvent(int *event_to_search, int event_bytes, u8 *readData, int
   * @param size size of cmd
   * @return OK if success or an error code which specify the type of error
   */
-int checkEcho(u8 *cmd, int size)
+int checkEcho(struct fts_ts_info *info, u8 *cmd, int size)
 {
 	int ret, i;
 	int event_to_search[FIFO_EVENT_SIZE];
@@ -333,14 +303,14 @@ int checkEcho(u8 *cmd, int size)
 		if ((cmd[0] == FTS_CMD_SYSTEM) && (cmd[1] == SYS_CMD_SPECIAL) &&
 			((cmd[2] == SPECIAL_FULL_PANEL_INIT) ||
 			(cmd[2] == SPECIAL_PANEL_INIT)))
-			ret = pollForEvent(event_to_search, size + 2, readData,
+			ret = pollForEvent(info, event_to_search, size + 2, readData,
 				   TIMEOUT_ECHO_FPI);
 		else if ((cmd[0] == FTS_CMD_SYSTEM) &&
 			(cmd[1] == SYS_CMD_CX_TUNING))
-			ret = pollForEvent(event_to_search, size + 2, readData,
+			ret = pollForEvent(info, event_to_search, size + 2, readData,
 				   TIMEOUT_ECHO_SINGLE_ENDED_SPECIAL_AUTOTUNE);
 		else
-			ret = pollForEvent(event_to_search, size + 2, readData,
+			ret = pollForEvent(info, event_to_search, size + 2, readData,
 				   TIEMOUT_ECHO);
 		if (ret < OK) {
 			logError(1,
@@ -372,7 +342,7 @@ int checkEcho(u8 *cmd, int size)
   * (for example @link active_bitmask Active Mode Bitmask @endlink)
   * @return OK if success or an error code which specify the type of error
   */
-int setScanMode(u8 mode, u8 settings)
+int setScanMode(struct fts_ts_info *info, u8 mode, u8 settings)
 {
 	u8 cmd[3] = { FTS_CMD_SCAN_MODE, mode, settings };
 	int ret, size = 3;
@@ -381,7 +351,7 @@ int setScanMode(u8 mode, u8 settings)
 		 tag, __func__, mode, settings);
 	if (mode == SCAN_MODE_LOW_POWER)
 		size = 2;
-	ret = fts_write(cmd, size);	/* use write instead of writeFw because
+	ret = fts_write(info, cmd, size);	/* use write instead of writeFw because
 					 * can be called while the interrupt are
 					 * enabled */
 	if (ret < OK) {
@@ -408,7 +378,7 @@ int setScanMode(u8 mode, u8 settings)
   * @param size in bytes of settings
   * @return OK if success or an error code which specify the type of error
   */
-int setFeatures(u8 feat, u8 *settings, int size)
+int setFeatures(struct fts_ts_info *info, u8 feat, u8 *settings, int size)
 {
 	u8 *cmd = NULL;
 	int i = 0;
@@ -428,7 +398,7 @@ int setFeatures(u8 feat, u8 *settings, int size)
 		logError(0, "%02X ", settings[i]);
 	}
 	logError(0, "\n");
-	ret = fts_write(cmd, 2 + size);	/* use write instead of writeFw because
+	ret = fts_write(info, cmd, 2 + size);	/* use write instead of writeFw because
 					 * can be called while the interrupts
 					 * are enabled */
 	if (ret < OK) {
@@ -456,7 +426,7 @@ int setFeatures(u8 feat, u8 *settings, int size)
   * @param size in bytes of settings
   * @return OK if success or an error code which specify the type of error
   */
-int writeSysCmd(u8 sys_cmd, u8 *sett, int size)
+int writeSysCmd(struct fts_ts_info *info, u8 sys_cmd, u8 *sett, int size)
 {
 	u8 *cmd = NULL;
 	int ret;
@@ -477,10 +447,10 @@ int writeSysCmd(u8 sys_cmd, u8 *sett, int size)
 	logError(0, "\n");
 	logError(0, "%s %s: Writing Sys command...\n", tag, __func__);
 	if (sys_cmd != SYS_CMD_LOAD_DATA)
-		ret = fts_writeFwCmd(cmd, 2 + size);
+		ret = fts_writeFwCmd(info, cmd, 2 + size);
 	else {
 		if (size >= 1)
-			ret = requestSyncFrame(sett[0]);
+			ret = requestSyncFrame(info, sett[0]);
 		else {
 			logError(1, "%s %s: No setting argument! ERROR %08X\n",
 				 tag, __func__, ERROR_OP_NOT_ALLOW);
@@ -509,28 +479,28 @@ int writeSysCmd(u8 sys_cmd, u8 *sett, int size)
   * data from memory, other value if another error occurred
   * @return OK if success or an error code which specify the type of error
   */
-int defaultSysInfo(int i2cError)
+int defaultSysInfo(struct fts_ts_info *info, int i2cError)
 {
 	int i;
 
 	logError(0, "%s Setting default System Info...\n", tag);
 
 	if (i2cError == 1) {
-		systemInfo.u16_fwVer = 0xFFFF;
-		systemInfo.u16_cfgProjectId = 0xFFFF;
+		info->systemInfo.u16_fwVer = 0xFFFF;
+		info->systemInfo.u16_cfgProjectId = 0xFFFF;
 		for (i = 0; i < RELEASE_INFO_SIZE; i++)
-			systemInfo.u8_releaseInfo[i] = 0xFF;
-		systemInfo.u16_cxVer = 0xFFFF;
+			info->systemInfo.u8_releaseInfo[i] = 0xFF;
+		info->systemInfo.u16_cxVer = 0xFFFF;
 	} else {
-		systemInfo.u16_fwVer = 0x0000;
-		systemInfo.u16_cfgProjectId = 0x0000;
+		info->systemInfo.u16_fwVer = 0x0000;
+		info->systemInfo.u16_cfgProjectId = 0x0000;
 		for (i = 0; i < RELEASE_INFO_SIZE; i++)
-			systemInfo.u8_releaseInfo[i] = 0x00;
-		systemInfo.u16_cxVer = 0x0000;
+			info->systemInfo.u8_releaseInfo[i] = 0x00;
+		info->systemInfo.u16_cxVer = 0x0000;
 	}
 
-	systemInfo.u8_scrRxLen = 0;
-	systemInfo.u8_scrTxLen = 0;
+	info->systemInfo.u8_scrRxLen = 0;
+	info->systemInfo.u8_scrTxLen = 0;
 
 	logError(0, "%s default System Info DONE!\n", tag);
 	return OK;
@@ -543,7 +513,7 @@ int defaultSysInfo(int i2cError)
   * attempt to read it directly from memory
   * @return OK if success or an error code which specify the type of error
   */
-int readSysInfo(int request)
+int readSysInfo(struct fts_ts_info *info, int request)
 {
 	int ret, i, index = 0;
 	u8 sett = LOAD_SYS_INFO;
@@ -554,7 +524,7 @@ int readSysInfo(int request)
 		logError(0, "%s %s: Requesting System Info...\n", tag,
 			 __func__);
 
-		ret = writeSysCmd(SYS_CMD_LOAD_DATA, &sett, 1);
+		ret = writeSysCmd(info, SYS_CMD_LOAD_DATA, &sett, 1);
 		if (ret < OK) {
 			logError(1,
 				 "%s %s: error while writing the sys cmd ERROR %08X\n",
@@ -564,7 +534,7 @@ int readSysInfo(int request)
 	}
 
 	logError(0, "%s %s: Reading System Info...\n", tag, __func__);
-	ret = fts_writeReadU8UX(FTS_CMD_FRAMEBUFFER_R, BITS_16,
+	ret = fts_writeReadU8UX(info, FTS_CMD_FRAMEBUFFER_R, BITS_16,
 				ADDR_FRAMEBUFFER, data, SYS_INFO_SIZE,
 				DUMMY_FRAMEBUFFER);
 	if (ret < OK) {
@@ -597,204 +567,204 @@ int readSysInfo(int request)
 	}
 
 	index += 4;
-	u8ToU16(&data[index], &systemInfo.u16_apiVer_rev);
+	u8ToU16(&data[index], &info->systemInfo.u16_apiVer_rev);
 	index += 2;
-	systemInfo.u8_apiVer_minor = data[index++];
-	systemInfo.u8_apiVer_major = data[index++];
-	u8ToU16(&data[index], &systemInfo.u16_chip0Ver);
+	info->systemInfo.u8_apiVer_minor = data[index++];
+	info->systemInfo.u8_apiVer_major = data[index++];
+	u8ToU16(&data[index], &info->systemInfo.u16_chip0Ver);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_chip0Id);
+	u8ToU16(&data[index], &info->systemInfo.u16_chip0Id);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_chip1Ver);
+	u8ToU16(&data[index], &info->systemInfo.u16_chip1Ver);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_chip1Id);
+	u8ToU16(&data[index], &info->systemInfo.u16_chip1Id);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_fwVer);
+	u8ToU16(&data[index], &info->systemInfo.u16_fwVer);
 	index += 2;
-	logError(1, "%s FW VER = %04X\n", tag, systemInfo.u16_fwVer);
-	u8ToU16(&data[index], &systemInfo.u16_svnRev);
+	logError(1, "%s FW VER = %04X\n", tag, info->systemInfo.u16_fwVer);
+	u8ToU16(&data[index], &info->systemInfo.u16_svnRev);
 	index += 2;
-	logError(1, "%s SVN REV = %04X\n", tag, systemInfo.u16_svnRev);
-	u8ToU16(&data[index], &systemInfo.u16_cfgVer);
+	logError(1, "%s SVN REV = %04X\n", tag, info->systemInfo.u16_svnRev);
+	u8ToU16(&data[index], &info->systemInfo.u16_cfgVer);
 	index += 2;
-	logError(1, "%s CONFIG VER = %04X\n", tag, systemInfo.u16_cfgVer);
-	u8ToU16(&data[index], &systemInfo.u16_cfgProjectId);
+	logError(1, "%s CONFIG VER = %04X\n", tag, info->systemInfo.u16_cfgVer);
+	u8ToU16(&data[index], &info->systemInfo.u16_cfgProjectId);
 	index += 2;
 	logError(1, "%s CONFIG PROJECT ID = %04X\n", tag,
-		 systemInfo.u16_cfgProjectId);
-	u8ToU16(&data[index], &systemInfo.u16_cxVer);
+		 info->systemInfo.u16_cfgProjectId);
+	u8ToU16(&data[index], &info->systemInfo.u16_cxVer);
 	index += 2;
-	logError(1, "%s CX VER = %04X\n", tag, systemInfo.u16_cxVer);
-	u8ToU16(&data[index], &systemInfo.u16_cxProjectId);
+	logError(1, "%s CX VER = %04X\n", tag, info->systemInfo.u16_cxVer);
+	u8ToU16(&data[index], &info->systemInfo.u16_cxProjectId);
 	index += 2;
 	logError(1, "%s CX PROJECT ID = %04X\n", tag,
-		 systemInfo.u16_cxProjectId);
-	systemInfo.u8_cfgAfeVer = data[index++];
-	systemInfo.u8_cxAfeVer =  data[index++];
-	systemInfo.u8_panelCfgAfeVer = data[index++];
+		 info->systemInfo.u16_cxProjectId);
+	info->systemInfo.u8_cfgAfeVer = data[index++];
+	info->systemInfo.u8_cxAfeVer =  data[index++];
+	info->systemInfo.u8_panelCfgAfeVer = data[index++];
 	logError(1, "%s AFE VER: CFG = %02X - CX = %02X - PANEL = %02X\n", tag,
-		 systemInfo.u8_cfgAfeVer, systemInfo.u8_cxAfeVer,
-		 systemInfo.u8_panelCfgAfeVer);
-	systemInfo.u8_protocol = data[index++];
-	logError(1, "%s Protocol = %02X\n", tag, systemInfo.u8_protocol);
+		 info->systemInfo.u8_cfgAfeVer, info->systemInfo.u8_cxAfeVer,
+		 info->systemInfo.u8_panelCfgAfeVer);
+	info->systemInfo.u8_protocol = data[index++];
+	logError(1, "%s Protocol = %02X\n", tag, info->systemInfo.u8_protocol);
 	/* index+= 1;
 	 * reserved area */
 
 	/* logError(1, "%s Die Info =  ", tag); */
 	for (i = 0; i < DIE_INFO_SIZE; i++)
-		systemInfo.u8_dieInfo[i] = data[index++];
+		info->systemInfo.u8_dieInfo[i] = data[index++];
 	/* logError(1, "%02X ", systemInfo.u8_dieInfo[i]); */
 	/* logError(1, "\n"); */
 	logError(1, "%s %s\n", tag, printHex("Die Info =  ",
-					      systemInfo.u8_dieInfo,
+					      info->systemInfo.u8_dieInfo,
 					      DIE_INFO_SIZE, temp));
 	memset(temp, 0, 256);
 
 
 	/* logError(1, "%s Release Info =  ", tag); */
 	for (i = 0; i < RELEASE_INFO_SIZE; i++)
-		systemInfo.u8_releaseInfo[i] = data[index++];
+		info->systemInfo.u8_releaseInfo[i] = data[index++];
 	/* logError(1, "%02X ", systemInfo.u8_releaseInfo[i]); */
 	/* logError(1, "\n"); */
 
 	logError(1, "%s %s\n", tag, printHex("Release Info =  ",
-					      systemInfo.u8_releaseInfo,
+					      info->systemInfo.u8_releaseInfo,
 					      RELEASE_INFO_SIZE, temp));
 	memset(temp, 0, 256);
 
-	u8ToU32(&data[index], &systemInfo.u32_fwCrc);
+	u8ToU32(&data[index], &info->systemInfo.u32_fwCrc);
 	index += 4;
-	u8ToU32(&data[index], &systemInfo.u32_cfgCrc);
+	u8ToU32(&data[index], &info->systemInfo.u32_cfgCrc);
 	index += 4;
 
 	index += 4;	/* skip reserved area */
 
-	systemInfo.u8_mpFlag = data[index++];
+	info->systemInfo.u8_mpFlag = data[index++];
 	logError(1, "%s MP FLAG = %02X\n", tag,
-		 systemInfo.u8_mpFlag);
+		 info->systemInfo.u8_mpFlag);
 
 	index += 3 + 4; /* +3 remaining from mp flag address */
 
-	systemInfo.u8_ssDetScanSet = data[index];
+	info->systemInfo.u8_ssDetScanSet = data[index];
 	logError(1, "%s SS Detect Scan Select = %d \n", tag,
-		 systemInfo.u8_ssDetScanSet);
+		 info->systemInfo.u8_ssDetScanSet);
 	index += 4;
 
-	u8ToU16(&data[index], &systemInfo.u16_scrResX);
+	u8ToU16(&data[index], &info->systemInfo.u16_scrResX);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_scrResY);
+	u8ToU16(&data[index], &info->systemInfo.u16_scrResY);
 	index += 2;
 	logError(1, "%s Screen Resolution = %d x %d\n", tag,
-		 systemInfo.u16_scrResX, systemInfo.u16_scrResY);
-	systemInfo.u8_scrTxLen = data[index++];
-	logError(1, "%s TX Len = %d\n", tag, systemInfo.u8_scrTxLen);
-	systemInfo.u8_scrRxLen = data[index++];
-	logError(1, "%s RX Len = %d\n", tag, systemInfo.u8_scrRxLen);
-	systemInfo.u8_keyLen = data[index++];
-	logError(1, "%s Key Len = %d\n", tag, systemInfo.u8_keyLen);
-	systemInfo.u8_forceLen = data[index++];
-	logError(1, "%s Force Len = %d\n", tag, systemInfo.u8_forceLen);
-	index += 8;	
+		 info->systemInfo.u16_scrResX, info->systemInfo.u16_scrResY);
+	info->systemInfo.u8_scrTxLen = data[index++];
+	logError(1, "%s TX Len = %d\n", tag, info->systemInfo.u8_scrTxLen);
+	info->systemInfo.u8_scrRxLen = data[index++];
+	logError(1, "%s RX Len = %d\n", tag, info->systemInfo.u8_scrRxLen);
+	info->systemInfo.u8_keyLen = data[index++];
+	logError(1, "%s Key Len = %d\n", tag, info->systemInfo.u8_keyLen);
+	info->systemInfo.u8_forceLen = data[index++];
+	logError(1, "%s Force Len = %d\n", tag, info->systemInfo.u8_forceLen);
+	index += 8;
 
-	u8ToU32(&data[index], &systemInfo.u32_productionTimestamp);
+	u8ToU32(&data[index], &info->systemInfo.u32_productionTimestamp);
 	logError(1, "%s Production Timestamp = %08X\n",
-	tag, systemInfo.u32_productionTimestamp);
+	tag, info->systemInfo.u32_productionTimestamp);
 
 	index += 32;	/* skip reserved area */
 
-	u8ToU16(&data[index], &systemInfo.u16_dbgInfoAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_dbgInfoAddr);
 	index += 2;
 
 	index += 6;	/* skip reserved area */
 
-	u8ToU16(&data[index], &systemInfo.u16_msTchRawAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_msTchRawAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_msTchFilterAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_msTchFilterAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_msTchStrenAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_msTchStrenAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_msTchBaselineAddr);
-	index += 2;
-
-	u8ToU16(&data[index], &systemInfo.u16_ssTchTxRawAddr);
-	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssTchTxFilterAddr);
-	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssTchTxStrenAddr);
-	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssTchTxBaselineAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_msTchBaselineAddr);
 	index += 2;
 
-	u8ToU16(&data[index], &systemInfo.u16_ssTchRxRawAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_ssTchTxRawAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssTchRxFilterAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_ssTchTxFilterAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssTchRxStrenAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_ssTchTxStrenAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssTchRxBaselineAddr);
-	index += 2;
-
-	u8ToU16(&data[index], &systemInfo.u16_keyRawAddr);
-	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_keyFilterAddr);
-	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_keyStrenAddr);
-	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_keyBaselineAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_ssTchTxBaselineAddr);
 	index += 2;
 
-	u8ToU16(&data[index], &systemInfo.u16_frcRawAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_ssTchRxRawAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_frcFilterAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_ssTchRxFilterAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_frcStrenAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_ssTchRxStrenAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_frcBaselineAddr);
-	index += 2;
-
-	u8ToU16(&data[index], &systemInfo.u16_ssHvrTxRawAddr);
-	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssHvrTxFilterAddr);
-	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssHvrTxStrenAddr);
-	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssHvrTxBaselineAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_ssTchRxBaselineAddr);
 	index += 2;
 
-	u8ToU16(&data[index], &systemInfo.u16_ssHvrRxRawAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_keyRawAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssHvrRxFilterAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_keyFilterAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssHvrRxStrenAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_keyStrenAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssHvrRxBaselineAddr);
-	index += 2;
-
-	u8ToU16(&data[index], &systemInfo.u16_ssPrxTxRawAddr);
-	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssPrxTxFilterAddr);
-	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssPrxTxStrenAddr);
-	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssPrxTxBaselineAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_keyBaselineAddr);
 	index += 2;
 
-	u8ToU16(&data[index], &systemInfo.u16_ssPrxRxRawAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_frcRawAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssPrxRxFilterAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_frcFilterAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssPrxRxStrenAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_frcStrenAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssPrxRxBaselineAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_frcBaselineAddr);
 	index += 2;
 
-	u8ToU16(&data[index], &systemInfo.u16_ssDetRawAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_ssHvrTxRawAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssDetFilterAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_ssHvrTxFilterAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssDetStrenAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_ssHvrTxStrenAddr);
 	index += 2;
-	u8ToU16(&data[index], &systemInfo.u16_ssDetBaselineAddr);
+	u8ToU16(&data[index], &info->systemInfo.u16_ssHvrTxBaselineAddr);
+	index += 2;
+
+	u8ToU16(&data[index], &info->systemInfo.u16_ssHvrRxRawAddr);
+	index += 2;
+	u8ToU16(&data[index], &info->systemInfo.u16_ssHvrRxFilterAddr);
+	index += 2;
+	u8ToU16(&data[index], &info->systemInfo.u16_ssHvrRxStrenAddr);
+	index += 2;
+	u8ToU16(&data[index], &info->systemInfo.u16_ssHvrRxBaselineAddr);
+	index += 2;
+
+	u8ToU16(&data[index], &info->systemInfo.u16_ssPrxTxRawAddr);
+	index += 2;
+	u8ToU16(&data[index], &info->systemInfo.u16_ssPrxTxFilterAddr);
+	index += 2;
+	u8ToU16(&data[index], &info->systemInfo.u16_ssPrxTxStrenAddr);
+	index += 2;
+	u8ToU16(&data[index], &info->systemInfo.u16_ssPrxTxBaselineAddr);
+	index += 2;
+
+	u8ToU16(&data[index], &info->systemInfo.u16_ssPrxRxRawAddr);
+	index += 2;
+	u8ToU16(&data[index], &info->systemInfo.u16_ssPrxRxFilterAddr);
+	index += 2;
+	u8ToU16(&data[index], &info->systemInfo.u16_ssPrxRxStrenAddr);
+	index += 2;
+	u8ToU16(&data[index], &info->systemInfo.u16_ssPrxRxBaselineAddr);
+	index += 2;
+
+	u8ToU16(&data[index], &info->systemInfo.u16_ssDetRawAddr);
+	index += 2;
+	u8ToU16(&data[index], &info->systemInfo.u16_ssDetFilterAddr);
+	index += 2;
+	u8ToU16(&data[index], &info->systemInfo.u16_ssDetStrenAddr);
+	index += 2;
+	u8ToU16(&data[index], &info->systemInfo.u16_ssDetBaselineAddr);
 	index += 2;
 
 	logError(1, "%s Parsed %d bytes!\n", tag, index);
@@ -811,7 +781,7 @@ int readSysInfo(int request)
 	return OK;
 
 FAIL:
-	defaultSysInfo(isI2cError(ret));
+	defaultSysInfo(info, isI2cError(ret));
 	return ret;
 }
 /** @}*/
@@ -824,14 +794,14 @@ FAIL:
   * @param len number of bytes to read
   * @return OK if success or an error code which specify the type of error
   */
-int readConfig(u16 offset, u8 *outBuf, int len)
+int readConfig(struct fts_ts_info *info, u16 offset, u8 *outBuf, int len)
 {
 	int ret;
 	u64 final_address = offset + ADDR_CONFIG_OFFSET;
 
 	logError(0, "%s %s: Starting to read config memory at %08llX ...\n",
 		 tag, __func__, final_address);
-	ret = fts_writeReadU8UX(FTS_CMD_CONFIG_R, BITS_16, final_address,
+	ret = fts_writeReadU8UX(info, FTS_CMD_CONFIG_R, BITS_16, final_address,
 				outBuf, len, DUMMY_CONFIG);
 	if (ret < OK) {
 		logError(1,
@@ -852,14 +822,14 @@ int readConfig(u16 offset, u8 *outBuf, int len)
   * @param len number of bytes to write
   * @return OK if success or an error code which specify the type of error
   */
-int writeConfig(u16 offset, u8 *data, int len)
+int writeConfig(struct fts_ts_info *info, u16 offset, u8 *data, int len)
 {
 	int ret;
 	u64 final_address = offset + ADDR_CONFIG_OFFSET;
 
 	logError(0, "%s %s: Starting to write config memory at %08llX ...\n",
 		 tag, __func__, final_address);
-	ret = fts_writeU8UX(FTS_CMD_CONFIG_W, BITS_16, final_address, data,
+	ret = fts_writeU8UX(info, FTS_CMD_CONFIG_W, BITS_16, final_address, data,
 			    len);
 	if (ret < OK) {
 		logError(1,
@@ -876,20 +846,20 @@ int writeConfig(u16 offset, u8 *data, int len)
   * Disable the interrupt so the ISR of the driver can not be called
   * @return OK if success or an error code which specify the type of error
   */
-int fts_disableInterrupt(void)
+int fts_disableInterrupt(struct fts_ts_info *info)
 {
-	if (getClient() != NULL) {
-		mutex_lock(&fts_int);
+	if (getClient(info) != NULL) {
+		mutex_lock(&info->fts_int);
 		logError(0, "%s Number of disable = %d\n", tag,
-			 disable_irq_count);
-		if (disable_irq_count == 0) {
+			 info->disable_irq_count);
+		if (info->disable_irq_count == 0) {
 			logError(0, "%s Executing Disable...\n", tag);
-			disable_irq(getClient()->irq);
-			disable_irq_count++;
+			disable_irq(getClient(info)->irq);
+			info->disable_irq_count++;
 		}
 		/* disable_irq is re-entrant so it is required to keep track
 		  * of the number of calls of this when reenabling */
-		mutex_unlock(&fts_int);
+		mutex_unlock(&info->fts_int);
 		logError(0, "%s Interrupt Disabled!\n", tag);
 		return OK;
 	} else {
@@ -904,21 +874,21 @@ int fts_disableInterrupt(void)
   * Disable the interrupt async so the ISR of the driver can not be called
   * @return OK if success or an error code which specify the type of error
   */
-int fts_disableInterruptNoSync(void)
+int fts_disableInterruptNoSync(struct fts_ts_info *info)
 {
-	if (getClient() != NULL) {
-		mutex_lock(&fts_int);
+	if (getClient(info) != NULL) {
+		mutex_lock(&info->fts_int);
 		logError(0, "%s Number of disable = %d\n", tag,
-			 disable_irq_count);
-		if (disable_irq_count == 0) {
+			 info->disable_irq_count);
+		if (info->disable_irq_count == 0) {
 			logError(0, "%s Executing Disable...\n", tag);
-			disable_irq_nosync(getClient()->irq);
-			disable_irq_count++;
+			disable_irq_nosync(getClient(info)->irq);
+			info->disable_irq_count++;
 		}
 		/* disable_irq is re-entrant so it is required to keep track
 		  * of the number of calls of this when reenabling */
 
-		mutex_unlock(&fts_int);
+		mutex_unlock(&info->fts_int);
 		logError(0, "%s Interrupt No Sync Disabled!\n", tag);
 		return OK;
 	} else {
@@ -933,9 +903,9 @@ int fts_disableInterruptNoSync(void)
   * Reset the disable_irq count
   * @return OK
   */
-int fts_resetDisableIrqCount(void)
+int fts_resetDisableIrqCount(struct fts_ts_info *info)
 {
-	disable_irq_count = 0;
+	info->disable_irq_count = 0;
 	return OK;
 }
 
@@ -943,21 +913,21 @@ int fts_resetDisableIrqCount(void)
   * Enable the interrupt so the ISR of the driver can be called
   * @return OK if success or an error code which specify the type of error
   */
-int fts_enableInterrupt(void)
+int fts_enableInterrupt(struct fts_ts_info *info)
 {
-	if (getClient() != NULL) {
-		mutex_lock(&fts_int);
+	if (getClient(info) != NULL) {
+		mutex_lock(&info->fts_int);
 		logError(0, "%s Number of re-enable = %d\n", tag,
-			 disable_irq_count);
-		while (disable_irq_count > 0) {
+			 info->disable_irq_count);
+		while (info->disable_irq_count > 0) {
 			/* loop N times according on the pending number of
 			 * disable_irq to truly re-enable the int */
 			logError(0, "%s Executing Enable...\n", tag);
-			enable_irq(getClient()->irq);
-			disable_irq_count--;
+			enable_irq(getClient(info)->irq);
+			info->disable_irq_count--;
 		}
 
-		mutex_unlock(&fts_int);
+		mutex_unlock(&info->fts_int);
 		logError(0, "%s Interrupt Enabled!\n", tag);
 		return OK;
 	} else {
@@ -972,7 +942,7 @@ int fts_enableInterrupt(void)
   *	@return  OK if no CRC error, or a number >OK according the CRC error
   * found
   */
-int fts_crc_check(void)
+int fts_crc_check(struct fts_ts_info *info)
 {
 	u8 val;
 	u8 crc_status;
@@ -985,7 +955,7 @@ int fts_crc_check(void)
 				  EVT_TYPE_ERROR_CRC_CX_SUB_HEAD };
 
 
-	res = fts_writeReadU8UX(FTS_CMD_HW_REG_R, ADDR_SIZE_HW_REG, ADDR_CRC,
+	res = fts_writeReadU8UX(info, FTS_CMD_HW_REG_R, ADDR_SIZE_HW_REG, ADDR_CRC,
 				&val, 1, DUMMY_HW_REG);
 	/* read 2 bytes because the first one is a dummy byte! */
 	if (res < OK) {
@@ -1002,7 +972,7 @@ int fts_crc_check(void)
 	}
 
 	logError(1, "%s %s: Verifying if Config CRC Error...\n", tag, __func__);
-	res = fts_system_reset();
+	res = fts_system_reset(info);
 	if (res >= OK) {
 		res = pollForErrorType(error_to_search, 2);
 		if (res < OK) {
@@ -1045,7 +1015,7 @@ int fts_crc_check(void)
   * Option  @endlink)
   * @return OK if success or an error code which specify the type of error
   */
-int requestSyncFrame(u8 type)
+int requestSyncFrame(struct fts_ts_info *info, u8 type)
 {
 	u8 request[3] = { FTS_CMD_SYSTEM, SYS_CMD_LOAD_DATA, type };
 	u8 readData[DATA_HEADER] = { 0 };
@@ -1057,7 +1027,7 @@ int requestSyncFrame(u8 type)
 	while (retry2 < RETRY_MAX_REQU_DATA) {
 		logError(0, "%s %s: Reading count...\n", tag, __func__);
 
-		ret = fts_writeReadU8UX(FTS_CMD_FRAMEBUFFER_R, BITS_16,
+		ret = fts_writeReadU8UX(info, FTS_CMD_FRAMEBUFFER_R, BITS_16,
 					ADDR_FRAMEBUFFER, readData, DATA_HEADER,
 					DUMMY_FRAMEBUFFER);
 		if (ret < OK) {
@@ -1084,13 +1054,13 @@ int requestSyncFrame(u8 type)
 
 		logError(0, "%s %s: Requesting frame %02X  attempt = %d\n",
 			 tag, __func__,  type, retry2 + 1);
-		ret = fts_write(request, ARRAY_SIZE(request));
+		ret = fts_write(info, request, ARRAY_SIZE(request));
 		if (ret >= OK) {
 			logError(0, "%s %s: Polling for new count...\n", tag,
 				 __func__);
 			time_to_count = TIMEOUT_REQU_DATA / TIMEOUT_RESOLUTION;
 			while (count == new_count && retry < time_to_count) {
-				ret = fts_writeReadU8UX(FTS_CMD_FRAMEBUFFER_R,
+				ret = fts_writeReadU8UX(info, FTS_CMD_FRAMEBUFFER_R,
 							BITS_16,
 							ADDR_FRAMEBUFFER,
 							readData,
@@ -1135,12 +1105,12 @@ int requestSyncFrame(u8 type)
   * @param mpflag Value to write in the MP Flag field
   * @return OK if success or an error code which specify the type of error
   */
-int saveMpFlag(u8 mpflag)
+int saveMpFlag(struct fts_ts_info *info, u8 mpflag)
 {
 	int ret;
 
 	logError(1, "%s %s: Saving MP Flag = %02X\n", tag, __func__, mpflag);
-	ret = writeSysCmd(SYS_CMD_MP_FLAG, &mpflag, 1);
+	ret = writeSysCmd(info, SYS_CMD_MP_FLAG, &mpflag, 1);
 	if (ret < OK) {
 		logError(1, "%s %s: Error while writing MP flag on ram... ERROR %08X\n",
 			tag, __func__, ret);
@@ -1148,14 +1118,14 @@ int saveMpFlag(u8 mpflag)
 	}
 
 	mpflag =  SAVE_PANEL_CONF;
-	ret = writeSysCmd(SYS_CMD_SAVE_FLASH, &mpflag, 1);
+	ret = writeSysCmd(info, SYS_CMD_SAVE_FLASH, &mpflag, 1);
 	if (ret < OK) {
 		logError(1, "%s %s: Error while saving MP flag on flash... ERROR %08X\n",
 			tag, __func__, ret);
 		return ret;
 	}
 
-	ret = readSysInfo(1);
+	ret = readSysInfo(info, 1);
 	if (ret < OK) {
 		logError(1, "%s %s: Error while refreshing SysInfo... ERROR %08X\n",
 			tag, __func__, ret);

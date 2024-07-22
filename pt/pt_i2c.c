@@ -13,6 +13,7 @@
  * TC3XXX
  *
  * Copyright (C) 2015-2020 Parade Technologies
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -174,7 +175,47 @@ static const struct of_device_id pt_i2c_of_match[] = {
 MODULE_DEVICE_TABLE(of, pt_i2c_of_match);
 #endif
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+/*******************************************************************************
+ * FUNCTION: pt_i2c_probe
+ *
+ * SUMMARY: Probe functon for the I2C module
+ *
+ * PARAMETERS:
+ *      *client - pointer to i2c client structure
+ *      *i2c_id - pointer to i2c device structure
+ ******************************************************************************/
+static int pt_i2c_probe(struct i2c_client *client)
+{
+	struct device *dev = &client->dev;
+#ifdef CONFIG_TOUCHSCREEN_PARADE_DEVICETREE_SUPPORT
+	const struct of_device_id *match;
+#endif
+	int rc;
 
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
+		pt_debug(dev, DL_ERROR, "I2C functionality not Supported\n");
+		return -EIO;
+	}
+#ifdef CONFIG_TOUCHSCREEN_PARADE_DEVICETREE_SUPPORT
+	match = of_match_device(of_match_ptr(pt_i2c_of_match), dev);
+	if (match) {
+		rc = pt_devtree_create_and_get_pdata(dev);
+		if (rc < 0)
+			return rc;
+	}
+#endif
+
+	rc = pt_probe(&pt_i2c_bus_ops, &client->dev, client->irq,
+			  PT_I2C_DATA_SIZE);
+
+#ifdef CONFIG_TOUCHSCREEN_PARADE_DEVICETREE_SUPPORT
+	if (rc && match)
+		pt_devtree_clean_pdata(dev);
+#endif
+	return rc;
+}
+#else
 /*******************************************************************************
  * FUNCTION: pt_i2c_probe
  *
@@ -185,7 +226,7 @@ MODULE_DEVICE_TABLE(of, pt_i2c_of_match);
  *      *i2c_id - pointer to i2c device structure
  ******************************************************************************/
 static int pt_i2c_probe(struct i2c_client *client,
-	const struct i2c_device_id *i2c_id)
+		const struct i2c_device_id *i2c_id)
 {
 	struct device *dev = &client->dev;
 #ifdef CONFIG_TOUCHSCREEN_PARADE_DEVICETREE_SUPPORT
@@ -214,7 +255,36 @@ static int pt_i2c_probe(struct i2c_client *client,
 #endif
 	return rc;
 }
+#endif
 
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0))
+/*******************************************************************************
+ * FUNCTION: pt_i2c_remove
+ *
+ * SUMMARY: Remove functon for the I2C module
+ *
+ * PARAMETERS:
+ *      *client - pointer to i2c client structure
+ ******************************************************************************/
+static void pt_i2c_remove(struct i2c_client *client)
+{
+#ifdef CONFIG_TOUCHSCREEN_PARADE_DEVICETREE_SUPPORT
+	const struct of_device_id *match;
+#endif
+	struct device *dev = &client->dev;
+	struct pt_core_data *cd = i2c_get_clientdata(client);
+
+	pt_release(cd);
+
+#ifdef CONFIG_TOUCHSCREEN_PARADE_DEVICETREE_SUPPORT
+	match = of_match_device(of_match_ptr(pt_i2c_of_match), dev);
+	if (match)
+		pt_devtree_clean_pdata(dev);
+#endif
+
+}
+#else
 /*******************************************************************************
  * FUNCTION: pt_i2c_remove
  *
@@ -241,6 +311,8 @@ static int pt_i2c_remove(struct i2c_client *client)
 
 	return 0;
 }
+#endif
+
 /*******************************************************************************
  * FUNCTION: pt_i2c_shutdown
  *

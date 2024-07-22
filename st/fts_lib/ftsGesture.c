@@ -2,6 +2,8 @@
 /*
  * Copyright (C) 2016-2019, STMicroelectronics Limited.
  * Authors: AMG(Analog Mems Group) <marco.cali@st.com>
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -138,7 +140,7 @@ int updateGestureMask(u8 *mask, int size, int en)
   * starting from the less significant byte.
   * @return OK if success or an error code which specify the type of error
   */
-int enableGesture(u8 *mask, int size)
+int enableGesture(struct fts_ts_info *info, u8 *mask, int size)
 {
 	int i, res;
 
@@ -151,7 +153,7 @@ int enableGesture(u8 *mask, int size)
 				gesture_mask[i] = gesture_mask[i] | mask[i];
 		/* back up of the gesture enabled */
 
-		res = setFeatures(FEAT_SEL_GESTURE, gesture_mask,
+		res = setFeatures(info, FEAT_SEL_GESTURE, gesture_mask,
 				  GESTURE_MASK_SIZE);
 		if (res < OK) {
 			logError(1, "%s enableGesture: ERROR %08X\n", tag,
@@ -184,7 +186,7 @@ END:
   * starting from the less significant byte.
   * @return OK if success or an error code which specify the type of error
   */
-int disableGesture(u8 *mask, int size)
+int disableGesture(struct fts_ts_info *info, u8 *mask, int size)
 {
 	u8 temp;
 	int i, res;
@@ -213,7 +215,7 @@ int disableGesture(u8 *mask, int size)
 			pointer = (u8 *)&i;
 		}
 
-		res = setFeatures(FEAT_SEL_GESTURE, pointer, GESTURE_MASK_SIZE);
+		res = setFeatures(info, FEAT_SEL_GESTURE, pointer, GESTURE_MASK_SIZE);
 		if (res < OK) {
 			logError(1, "%s disableGesture: ERROR %08X\n", tag,
 				 res);
@@ -242,11 +244,11 @@ END:
   *  in the FW the last defined gesture mask
   * @return OK if success or an error code which specify the type of error
   */
-int enterGestureMode(int reload)
+int enterGestureMode(struct fts_ts_info *info, int reload)
 {
 	int res, ret;
 
-	res = fts_disableInterrupt();
+	res = fts_disableInterrupt(info);
 	if (res < OK) {
 		logError(1, "%s enterGestureMode: ERROR %08X\n", tag, res |
 			 ERROR_DISABLE_INTER);
@@ -254,7 +256,7 @@ int enterGestureMode(int reload)
 	}
 
 	if (reload == 1 || refreshGestureMask == 1) {
-		res = enableGesture(NULL, 0);
+		res = enableGesture(info, NULL, 0);
 		if (res < OK) {
 			logError(1,
 				 "%s enterGestureMode: enableGesture ERROR %08X\n",
@@ -266,7 +268,7 @@ int enterGestureMode(int reload)
 		refreshGestureMask = 0;
 	}
 
-	res = setScanMode(SCAN_MODE_LOW_POWER, 0);
+	res = setScanMode(info, SCAN_MODE_LOW_POWER, 0);
 	if (res < OK) {
 		logError(1,
 			 "%s enterGestureMode: enter gesture mode ERROR %08X\n",
@@ -277,7 +279,7 @@ int enterGestureMode(int reload)
 
 	res = OK;
 END:
-	ret = fts_enableInterrupt();
+	ret = fts_enableInterrupt(info);
 	if (ret < OK) {
 		logError(1,
 			 "%s enterGestureMode: fts_enableInterrupt ERROR %08X\n",
@@ -324,7 +326,7 @@ int isAnyGestureActive(void)
   *  by the fw when a gesture is detected
   * @return OK if success or an error code which specify the type of error
   */
-int readGestureCoords(u8 *event)
+int readGestureCoords(struct fts_ts_info *info, u8 *event)
 {
 	int i = 0;
 	u64 address = 0;
@@ -353,7 +355,7 @@ int readGestureCoords(u8 *event)
 		logError(1, "%s %s: Offset: %08llX , coords pairs = %d\n", tag,
 			 __func__, address, gesture_coords_reported);
 
-		res = fts_writeReadU8UX(FTS_CMD_FRAMEBUFFER_R, BITS_16, address,
+		res = fts_writeReadU8UX(info, FTS_CMD_FRAMEBUFFER_R, BITS_16, address,
 					val, (gesture_coords_reported * 2 * 2),
 					DUMMY_FRAMEBUFFER);
 		/* *2 because each coord is made by 2 bytes,

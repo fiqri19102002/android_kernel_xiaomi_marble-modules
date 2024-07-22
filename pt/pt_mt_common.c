@@ -13,6 +13,7 @@
  * TC3XXX
  *
  * Copyright (C) 2015-2020 Parade Technologies
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -285,7 +286,7 @@ static void pt_get_mt_touches(struct pt_mt_data *md,
 
 	if (PT_TOUCH_ID_MAX < si->tch_abs[PT_TCH_T].max) {
 		pt_debug(dev, DL_ERROR,
-			"%s: Touch ID num %d is allocated less than needed %d\n",
+			"%s: Touch ID num %d is allocated less than needed %zu\n",
 			__func__, PT_TOUCH_ID_MAX, si->tch_abs[PT_TCH_T].max);
 		return;
 	}

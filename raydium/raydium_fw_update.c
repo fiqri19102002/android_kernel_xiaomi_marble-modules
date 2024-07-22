@@ -3,6 +3,7 @@
  * Raydium TouchScreen driver.
  *
  * Copyright (c) 2021  Raydium tech Ltd.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -60,7 +61,7 @@ static void raydium_cb(const struct firmware *fw, void *ctx)
 	int i32_ret = ERROR;
 #endif
 	if (fw && (fw->size == RAD_ALLFW_3X_SIZE)) {
-		LOGD(LOG_DEBUG, "[touch]get firmware success size:%x\n", fw->size);
+		LOGD(LOG_DEBUG, "[touch]get firmware success size:%zx\n", fw->size);
 
 		memcpy(g_rad_boot_image, fw->data, RAD_BOOT_3X_SIZE);
 		u32_offset += RAD_BOOT_3X_SIZE;

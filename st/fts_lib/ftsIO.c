@@ -3,7 +3,7 @@
  * Copyright (C) 2016-2019, STMicroelectronics Limited.
  * Authors: AMG(Analog Mems Group) <marco.cali@st.com>
  *
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -54,8 +54,8 @@
 #include "ftsIO.h"
 
 
-static u16 I2CSAD;	/* /< slave address of the IC in the i2c bus */
-struct client_info gClient;	/* /< bus client retrieved by the OS and
+static u16 I2CSAD[MAX_SUPPORTED_TOUCH_PANELS];	/* /< slave address of the IC in the i2c bus */
+struct client_info gClient[MAX_SUPPORTED_TOUCH_PANELS];	/* /< bus client retrieved by the OS and
 				 * used to execute the bus transfers
 				 */
 
@@ -69,17 +69,23 @@ struct client_info gClient;	/* /< bus client retrieved by the OS and
 int openChannel(void *ctl)
 {
 	struct fts_ts_info *info = (struct fts_ts_info *)ctl;
+	int idx = 0;
 
-	gClient.irq = info->irq;
-	gClient.dev = info->dev;
-	gClient.bus_type = info->bus_type;
+	if (info->is_primary)
+		idx = PRIMARY_TOUCH_IDX;
+	else
+		idx = SECONDARY_TOUCH_IDX;
+
+	gClient[idx].irq = info->irq;
+	gClient[idx].dev = info->dev;
+	gClient[idx].bus_type = info->bus_type;
 
 	if (info->bus_type == BUS_I2C) {
-		gClient.client = info->i2c_client;
-		I2CSAD = info->i2c_client->addr;
-		logError(1, "%s %s: SAD: %02X\n", tag, __func__, I2CSAD);
+		gClient[idx].client = info->i2c_client;
+		I2CSAD[idx] = info->i2c_client->addr;
+		logError(1, "%s %s: SAD: %02X\n", tag, __func__, I2CSAD[idx]);
 	} else if (info->bus_type == BUS_SPI) {
-		gClient.client = info->spi_client;
+		gClient[idx].client = info->spi_client;
 		logError(1, "%s %s: spi_master: flags = %04X !\n", tag, __func__,
 			 info->spi_client->master->flags);
 		logError(1,
@@ -100,46 +106,84 @@ int openChannel(void *ctl)
   * @param sad new slave address id
   * @return OK
   */
-int changeSAD(u8 sad)
+int changeSAD(struct fts_ts_info *info, u8 sad)
 {
-	I2CSAD = sad;
+	int idx = 0;
+
+	if (info->is_primary)
+		idx = PRIMARY_TOUCH_IDX;
+	else
+		idx = SECONDARY_TOUCH_IDX;
+
+	I2CSAD[idx] = sad;
 	return OK;
 }
 
+u16 getI2CSAD(struct fts_ts_info *info)
+{
+	int idx = 0;
 
+	if (info->is_primary)
+		idx = PRIMARY_TOUCH_IDX;
+	else
+		idx = SECONDARY_TOUCH_IDX;
+
+	return I2CSAD[idx];
+}
+
+struct device *getPrimaryDev(void)
+{
+	struct fts_ts_info *info = NULL;
+
+	for (int i = 0; i < MAX_SUPPORTED_TOUCH_PANELS; i++) {
+		info = dev_get_drvdata((&gClient[i])->dev);
+		if (info->is_primary)
+			return (&gClient[i])->dev;
+	}
+	return NULL;
+}
 
 /**
   * Retrieve the pointer to the device struct of the IC
   * @return a the device struct pointer if client was previously set
   * or NULL in all the other cases
   */
-struct device *getDev(void)
+struct device *getDev(struct fts_ts_info *info)
 {
-	if (getClient())
-		return getClient()->dev;
+	if (getClient(info))
+		return getClient(info)->dev;
 
 	return NULL;
 }
 
-struct client_info *getClient(void)
+struct client_info *getClient(struct fts_ts_info *info)
 {
-	if (gClient.client == NULL || (gClient.bus_type != BUS_I2C && gClient.bus_type != BUS_SPI))
+	int idx = 0;
+
+	if (info->is_primary)
+		idx = PRIMARY_TOUCH_IDX;
+	else
+		idx = SECONDARY_TOUCH_IDX;
+
+	if (gClient[idx].client == NULL ||
+		(gClient[idx].bus_type != BUS_I2C &&
+		gClient[idx].bus_type != BUS_SPI))
 		return NULL;
 	else
-		return &gClient;
+		return &gClient[idx];
 }
 
-struct i2c_client *toI2CClient(void)
+struct i2c_client *toI2CClient(struct fts_ts_info *info)
 {
-	if (getClient() && (getClient()->bus_type == BUS_I2C))
-		return (struct i2c_client *)getClient()->client;
+	if (getClient(info) && (getClient(info)->bus_type == BUS_I2C))
+		return (struct i2c_client *)getClient(info)->client;
 	return NULL;
 }
 
-struct spi_device *toSPIClient(void)
+struct spi_device *toSPIClient(struct fts_ts_info *info)
 {
-	if (getClient() && (getClient()->bus_type == BUS_SPI))
-		return (struct spi_device *)getClient()->client;
+	if (getClient(info) && (getClient(info)->bus_type == BUS_SPI))
+		return (struct spi_device *)getClient(info)->client;
 	return NULL;
 }
 
@@ -194,7 +238,7 @@ int remap_dummy_byte(int dymmy_byte, u16 bus_type)
   * @param byteToRead number of bytes to read
   * @return OK if success or an error code which specify the type of error
   */
-int fts_read(u8 *outBuf, int byteToRead)
+int fts_read(struct fts_ts_info *info, u8 *outBuf, int byteToRead)
 {
 	int ret = -1;
 	int retry = 0;
@@ -211,17 +255,17 @@ int fts_read(u8 *outBuf, int byteToRead)
 		return ERROR_ALLOC;
 	}
 
-	if (getClient() == NULL) {
+	if (getClient(info) == NULL) {
 		kfree(rx_buf);
 		return ERROR_BUS_O;
 	}
 
-	if (getClient()->bus_type == BUS_I2C) {
-		I2CMsg[0].addr = (__u16)I2CSAD;
+	if (getClient(info)->bus_type == BUS_I2C) {
+		I2CMsg[0].addr = (__u16)getI2CSAD(info);
 		I2CMsg[0].flags = (__u16)I2C_M_RD;
 		I2CMsg[0].len = (__u16)byteToRead;
 		I2CMsg[0].buf = (__u8 *)rx_buf;
-	} else if (getClient()->bus_type == BUS_SPI) {
+	} else if (getClient(info)->bus_type == BUS_SPI) {
 		spi_message_init(&msg);
 		transfer[0].len = byteToRead;
 		transfer[0].delay.value = SPI_DELAY_CS;
@@ -231,10 +275,10 @@ int fts_read(u8 *outBuf, int byteToRead)
 	}
 
 	while (retry < I2C_RETRY && ret < OK) {
-		if (getClient()->bus_type == BUS_I2C)
-			ret = i2c_transfer(toI2CClient()->adapter, I2CMsg, 1);
-		else if (getClient()->bus_type == BUS_SPI)
-			ret = spi_sync(toSPIClient(), &msg);
+		if (getClient(info)->bus_type == BUS_I2C)
+			ret = i2c_transfer(toI2CClient(info)->adapter, I2CMsg, 1);
+		else if (getClient(info)->bus_type == BUS_SPI)
+			ret = spi_sync(toSPIClient(info), &msg);
 		retry++;
 		if (ret < OK)
 			msleep(I2C_WAIT_BEFORE_RETRY);
@@ -262,7 +306,7 @@ int fts_read(u8 *outBuf, int byteToRead)
   * @param byteToRead number of bytes to read
   * @return OK if success or an error code which specify the type of error
   */
-int fts_writeRead(u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
+int fts_writeRead(struct fts_ts_info *info, u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
 {
 	int ret = -1;
 	int retry = 0;
@@ -281,7 +325,7 @@ int fts_writeRead(u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
 		return ERROR_ALLOC;
 	}
 
-	if (getClient() == NULL) {
+	if (getClient(info) == NULL) {
 		kfree(tx_buf);
 		kfree(rx_buf);
 		return ERROR_BUS_O;
@@ -289,19 +333,19 @@ int fts_writeRead(u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
 
 	memcpy(tx_buf, cmd, cmdLength);
 
-	if (getClient()->bus_type == BUS_I2C) {
+	if (getClient(info)->bus_type == BUS_I2C) {
 		/* write msg */
-		I2CMsg[0].addr = (__u16)I2CSAD;
+		I2CMsg[0].addr = (__u16)getI2CSAD(info);
 		I2CMsg[0].flags = (__u16)0;
 		I2CMsg[0].len = (__u16)cmdLength;
 		I2CMsg[0].buf = (__u8 *)tx_buf;
 
 		/* read msg */
-		I2CMsg[1].addr = (__u16)I2CSAD;
+		I2CMsg[1].addr = (__u16)getI2CSAD(info);
 		I2CMsg[1].flags = I2C_M_RD;
 		I2CMsg[1].len = byteToRead;
 		I2CMsg[1].buf = (__u8 *)rx_buf;
-	} else if (getClient()->bus_type == BUS_SPI) {
+	} else if (getClient(info)->bus_type == BUS_SPI) {
 		spi_message_init(&msg);
 
 		transfer[0].len = cmdLength;
@@ -317,10 +361,10 @@ int fts_writeRead(u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
 	}
 
 	while (retry < I2C_RETRY && ret < OK) {
-		if (getClient()->bus_type == BUS_I2C)
-			ret = i2c_transfer(toI2CClient()->adapter, I2CMsg, 2);
-		else if (getClient()->bus_type == BUS_SPI)
-			ret = spi_sync(toSPIClient(), &msg);
+		if (getClient(info)->bus_type == BUS_I2C)
+			ret = i2c_transfer(toI2CClient(info)->adapter, I2CMsg, 2);
+		else if (getClient(info)->bus_type == BUS_SPI)
+			ret = spi_sync(toSPIClient(info), &msg);
 		retry++;
 		if (ret < OK)
 			msleep(I2C_WAIT_BEFORE_RETRY);
@@ -347,7 +391,7 @@ int fts_writeRead(u8 *cmd, int cmdLength, u8 *outBuf, int byteToRead)
   * @param cmdLength size of cmd
   * @return OK if success or an error code which specify the type of error
   */
-int fts_write(u8 *cmd, int cmdLength)
+int fts_write(struct fts_ts_info *info, u8 *cmd, int cmdLength)
 {
 	int ret = -1;
 	int retry = 0;
@@ -364,19 +408,19 @@ int fts_write(u8 *cmd, int cmdLength)
 		return ERROR_ALLOC;
 	}
 
-	if (getClient() == NULL) {
+	if (getClient(info) == NULL) {
 		kfree(tx_buf);
 		return ERROR_BUS_O;
 	}
 
 	memcpy(tx_buf, cmd, cmdLength);
 
-	if (getClient()->bus_type == BUS_I2C) {
-		I2CMsg[0].addr = (__u16)I2CSAD;
+	if (getClient(info)->bus_type == BUS_I2C) {
+		I2CMsg[0].addr = (__u16)getI2CSAD(info);
 		I2CMsg[0].flags = (__u16)0;
 		I2CMsg[0].len = (__u16)cmdLength;
 		I2CMsg[0].buf = (__u8 *)tx_buf;
-	} else if (getClient()->bus_type == BUS_SPI) {
+	} else if (getClient(info)->bus_type == BUS_SPI) {
 		spi_message_init(&msg);
 		transfer[0].len = cmdLength;
 		transfer[0].delay.value = SPI_DELAY_CS;
@@ -386,10 +430,10 @@ int fts_write(u8 *cmd, int cmdLength)
 	}
 
 	while (retry < I2C_RETRY && ret < OK) {
-		if (getClient()->bus_type == BUS_I2C)
-			ret = i2c_transfer(toI2CClient()->adapter, I2CMsg, 1);
-		else if (getClient()->bus_type == BUS_SPI)
-			ret = spi_sync(toSPIClient(), &msg);
+		if (getClient(info)->bus_type == BUS_I2C)
+			ret = i2c_transfer(toI2CClient(info)->adapter, I2CMsg, 1);
+		else if (getClient(info)->bus_type == BUS_SPI)
+			ret = spi_sync(toSPIClient(info), &msg);
 
 		retry++;
 		if (ret < OK)
@@ -411,7 +455,7 @@ int fts_write(u8 *cmd, int cmdLength)
   * @param cmdLength size of cmd
   * @return OK if success, or an error code which specify the type of error
   */
-int fts_writeFwCmd(u8 *cmd, int cmdLength)
+int fts_writeFwCmd(struct fts_ts_info *info, u8 *cmd, int cmdLength)
 {
 	int ret = -1;
 	int ret2 = -1;
@@ -429,19 +473,19 @@ int fts_writeFwCmd(u8 *cmd, int cmdLength)
 		return ERROR_ALLOC;
 	}
 
-	if (getClient() == NULL) {
+	if (getClient(info) == NULL) {
 		kfree(tx_buf);
 		return ERROR_BUS_O;
 	}
 
 	memcpy(tx_buf, cmd, cmdLength);
 
-	if (getClient()->bus_type == BUS_I2C) {
-		I2CMsg[0].addr = (__u16)I2CSAD;
+	if (getClient(info)->bus_type == BUS_I2C) {
+		I2CMsg[0].addr = (__u16)getI2CSAD(info);
 		I2CMsg[0].flags = (__u16)0;
 		I2CMsg[0].len = (__u16)cmdLength;
 		I2CMsg[0].buf = (__u8 *)tx_buf;
-	} else if (getClient()->bus_type == BUS_SPI) {
+	} else if (getClient(info)->bus_type == BUS_SPI) {
 		spi_message_init(&msg);
 		transfer[0].len = cmdLength;
 		transfer[0].delay.value = SPI_DELAY_CS;
@@ -452,14 +496,14 @@ int fts_writeFwCmd(u8 *cmd, int cmdLength)
 
 	resetErrorList();
 	while (retry < I2C_RETRY && (ret < OK || ret2 < OK)) {
-		if (getClient()->bus_type == BUS_I2C)
-			ret = i2c_transfer(toI2CClient()->adapter, I2CMsg, 1);
-		else if (getClient()->bus_type == BUS_SPI)
-			ret = spi_sync(toSPIClient(), &msg);
+		if (getClient(info)->bus_type == BUS_I2C)
+			ret = i2c_transfer(toI2CClient(info)->adapter, I2CMsg, 1);
+		else if (getClient(info)->bus_type == BUS_SPI)
+			ret = spi_sync(toSPIClient(info), &msg);
 
 		retry++;
 		if (ret >= 0)
-			ret2 = checkEcho(cmd, cmdLength);
+			ret2 = checkEcho(info, cmd, cmdLength);
 		if (ret < OK || ret2 < OK)
 			msleep(I2C_WAIT_BEFORE_RETRY);
 		/* logError(1,"%s fts_writeCmd: attempt %d\n", tag, retry); */
@@ -482,20 +526,25 @@ int fts_writeFwCmd(u8 *cmd, int cmdLength)
 
 
 /**
-  * Perform two bus write and one bus read without any stop condition
-  * In case of FTI this function is not supported and the same sequence
-  * can be achieved calling fts_write followed by an fts_writeRead.
-  * @param writeCmd1 byte array containing the first command to write
-  * @param writeCmdLength size of writeCmd1
-  * @param readCmd1 byte array containing the second command to write
-  * @param readCmdLength size of readCmd1
-  * @param outBuf pointer of a byte array which should contain the bytes read
-  * from the IC
-  * @param byteToRead number of bytes to read
-  * @return OK if success or an error code which specify the type of error
-  */
-int fts_writeThenWriteRead(u8 *writeCmd1, int writeCmdLength, u8 *readCmd1, int
-			   readCmdLength, u8 *outBuf, int byteToRead)
+ * Perform two bus write and one bus read without any stop condition
+ * In case of FTI this function is not supported and the same sequence
+ * can be achieved calling fts_write followed by an fts_writeRead.
+ * @param writeCmd1 byte array containing the first command to write
+ * @param writeCmdLength size of writeCmd1
+ * @param readCmd1 byte array containing the second command to write
+ * @param readCmdLength size of readCmd1
+ * @param outBuf pointer of a byte array which should contain the bytes read
+ * from the IC
+ * @param byteToRead number of bytes to read
+ * @return OK if success or an error code which specify the type of error
+ */
+int fts_writeThenWriteRead(struct fts_ts_info *info,
+				u8 *writeCmd1,
+				int writeCmdLength,
+				u8 *readCmd1,
+				int readCmdLength,
+				u8 *outBuf,
+				int byteToRead)
 {
 	int ret = -1;
 	int retry = 0;
@@ -517,7 +566,7 @@ int fts_writeThenWriteRead(u8 *writeCmd1, int writeCmdLength, u8 *readCmd1, int
 		return ERROR_ALLOC;
 	}
 
-	if (getClient() == NULL) {
+	if (getClient(info) == NULL) {
 		kfree(tx_buf);
 		kfree(tx_buf1);
 		kfree(rx_buf);
@@ -528,25 +577,25 @@ int fts_writeThenWriteRead(u8 *writeCmd1, int writeCmdLength, u8 *readCmd1, int
 	memcpy(tx_buf1, readCmd1, readCmdLength);
 
 
-	if (getClient()->bus_type == BUS_I2C) {
+	if (getClient(info)->bus_type == BUS_I2C) {
 		/* write msg */
-		I2CMsg[0].addr = (__u16)I2CSAD;
+		I2CMsg[0].addr = (__u16)getI2CSAD(info);
 		I2CMsg[0].flags = (__u16)0;
 		I2CMsg[0].len = (__u16)writeCmdLength;
 		I2CMsg[0].buf = (__u8 *)tx_buf;
 
 		/* write msg */
-		I2CMsg[1].addr = (__u16)I2CSAD;
+		I2CMsg[1].addr = (__u16)getI2CSAD(info);
 		I2CMsg[1].flags = (__u16)0;
 		I2CMsg[1].len = (__u16)readCmdLength;
 		I2CMsg[1].buf = (__u8 *)tx_buf1;
 
 		/* read msg */
-		I2CMsg[2].addr = (__u16)I2CSAD;
+		I2CMsg[2].addr = (__u16)getI2CSAD(info);
 		I2CMsg[2].flags = I2C_M_RD;
 		I2CMsg[2].len = byteToRead;
 		I2CMsg[2].buf = (__u8 *)rx_buf;
-	} else if (getClient()->bus_type == BUS_SPI) {
+	} else if (getClient(info)->bus_type == BUS_SPI) {
 		spi_message_init(&msg);
 
 		transfer[0].len = writeCmdLength;
@@ -568,10 +617,10 @@ int fts_writeThenWriteRead(u8 *writeCmd1, int writeCmdLength, u8 *readCmd1, int
 
 	while (retry < I2C_RETRY && ret < OK) {
 
-		if (getClient()->bus_type == BUS_I2C)
-			ret = i2c_transfer(toI2CClient()->adapter, I2CMsg, 3);
-		else if (getClient()->bus_type == BUS_SPI)
-			ret = spi_sync(toSPIClient(), &msg);
+		if (getClient(info)->bus_type == BUS_I2C)
+			ret = i2c_transfer(toI2CClient(info)->adapter, I2CMsg, 3);
+		else if (getClient(info)->bus_type == BUS_SPI)
+			ret = spi_sync(toSPIClient(info), &msg);
 
 		retry++;
 		if (ret < OK)
@@ -603,14 +652,14 @@ int fts_writeThenWriteRead(u8 *writeCmd1, int writeCmdLength, u8 *readCmd1, int
   * @return OK if success or an error code which specify the type of error
   */
 /* this function works only if the address is max 8 bytes */
-int fts_writeU8UX(u8 cmd, AddrSize addrSize, u64 address, u8 *data, int
+int fts_writeU8UX(struct fts_ts_info *info, u8 cmd, AddrSize addrSize, u64 address, u8 *data, int
 		  dataSize)
 {
 	u8 finalCmd[FTS_ADDR_SIZE_MAX + WRITE_CHUNK];
 	int remaining = dataSize;
 	int toWrite = 0, i = 0;
 
-	cmd = remap_reg(cmd, getClient()->bus_type);
+	cmd = remap_reg(cmd, getClient(info)->bus_type);
 
 	if (addrSize <= sizeof(u64)) {
 		while (remaining > 0) {
@@ -635,7 +684,7 @@ int fts_writeU8UX(u8 cmd, AddrSize addrSize, u64 address, u8 *data, int
 
 			memcpy(&finalCmd[addrSize + 1], data, toWrite);
 
-			if (fts_write(finalCmd, 1 + addrSize + toWrite) < OK) {
+			if (fts_write(info, finalCmd, 1 + addrSize + toWrite) < OK) {
 				logError(1, "%s %s: ERROR %08X\n", tag,
 					 __func__, ERROR_BUS_W);
 				return ERROR_BUS_W;
@@ -666,16 +715,21 @@ int fts_writeU8UX(u8 cmd, AddrSize addrSize, u64 address, u8 *data, int
   * set to 1, otherwise if it is valid set to 0 (or any other value)
   * @return OK if success or an error code which specify the type of error
   */
-int fts_writeReadU8UX(u8 cmd, AddrSize addrSize, u64 address, u8 *outBuf, int
-		      byteToRead, int hasDummyByte)
+int fts_writeReadU8UX(struct fts_ts_info *info,
+			u8 cmd,
+			AddrSize addrSize,
+			u64 address,
+			u8 *outBuf,
+			int byteToRead,
+			int hasDummyByte)
 {
 	u8 finalCmd[FTS_ADDR_SIZE_MAX];
 	u8 buff[READ_CHUNK + 1];/* worst case has dummy byte */
 	int remaining = byteToRead;
 	int toRead = 0, i = 0;
 
-	hasDummyByte = remap_dummy_byte(hasDummyByte, getClient()->bus_type);
-	cmd = remap_reg(cmd, getClient()->bus_type);
+	hasDummyByte = remap_dummy_byte(hasDummyByte, getClient(info)->bus_type);
+	cmd = remap_reg(cmd, getClient(info)->bus_type);
 
 	while (remaining > 0) {
 		if (remaining >= READ_CHUNK) {
@@ -692,7 +746,7 @@ int fts_writeReadU8UX(u8 cmd, AddrSize addrSize, u64 address, u8 *outBuf, int
 							    8)) & 0xFF);
 
 		if (hasDummyByte == 1) {
-			if (fts_writeRead(finalCmd, 1 + addrSize, buff, toRead +
+			if (fts_writeRead(info, finalCmd, 1 + addrSize, buff, toRead +
 					  1) < OK) {
 				logError(1,
 					 "%s %s: read error... ERROR %08X\n",
@@ -702,7 +756,7 @@ int fts_writeReadU8UX(u8 cmd, AddrSize addrSize, u64 address, u8 *outBuf, int
 			}
 			memcpy(outBuf, buff + 1, toRead);
 		} else {
-			if (fts_writeRead(finalCmd, 1 + addrSize, buff,
+			if (fts_writeRead(info, finalCmd, 1 + addrSize, buff,
 					  toRead) < OK) {
 				logError(1,
 					 "%s %s: read error... ERROR %08X\n",
@@ -722,22 +776,29 @@ int fts_writeReadU8UX(u8 cmd, AddrSize addrSize, u64 address, u8 *outBuf, int
 }
 
 /**
-  * Perform a chunked write followed by a second write with one byte op code
-  * for each write and 1 to 8 bytes address (the sum of the 2 address size of
-  * the two writes can not exceed 8 bytes)
-  * @param cmd1 byte containing the op code of first write
-  * @param addrSize1 address size in byte of first write
-  * @param cmd2 byte containing the op code of second write
-  * @param addrSize2 address size in byte of second write
-  * @param address the starting address
-  * @param data pointer of a byte array which contain the bytes to write
-  * @param dataSize size of data
-  * @return OK if success or an error code which specify the type of error
-  */
+ * Perform a chunked write followed by a second write with one byte op code
+ * for each write and 1 to 8 bytes address (the sum of the 2 address size of
+ * the two writes can not exceed 8 bytes)
+ * @param cmd1 byte containing the op code of first write
+ * @param addrSize1 address size in byte of first write
+ * @param cmd2 byte containing the op code of second write
+ * @param addrSize2 address size in byte of second write
+ * @param address the starting address
+ * @param data pointer of a byte array which contain the bytes to write
+ * @param dataSize size of data
+ * @return OK if success or an error code which specify the type of error
+ */
 /* this function works only if the sum of two addresses in the two commands is
- * max 8 bytes */
-int fts_writeU8UXthenWriteU8UX(u8 cmd1, AddrSize addrSize1, u8 cmd2, AddrSize
-			       addrSize2, u64 address, u8 *data, int dataSize)
+ * max 8 bytes
+ */
+int fts_writeU8UXthenWriteU8UX(struct fts_ts_info *info,
+				u8 cmd1,
+				AddrSize addrSize1,
+				u8 cmd2,
+				AddrSize addrSize2,
+				u64 address,
+				u8 *data,
+				int dataSize)
 {
 	u8 finalCmd1[FTS_ADDR_SIZE_MAX];
 	u8 finalCmd2[FTS_ADDR_SIZE_MAX + WRITE_CHUNK];
@@ -769,13 +830,13 @@ int fts_writeU8UXthenWriteU8UX(u8 cmd1, AddrSize addrSize1, u8 cmd2, AddrSize
 
 		memcpy(&finalCmd2[addrSize2 + 1], data, toWrite);
 
-		if (fts_write(finalCmd1, 1 + addrSize1) < OK) {
+		if (fts_write(info, finalCmd1, 1 + addrSize1) < OK) {
 			logError(1, "%s %s: first write error... ERROR %08X\n",
 				 tag, __func__, ERROR_BUS_W);
 			return ERROR_BUS_W;
 		}
 
-		if (fts_write(finalCmd2, 1 + addrSize2 + toWrite) < OK) {
+		if (fts_write(info, finalCmd2, 1 + addrSize2 + toWrite) < OK) {
 			logError(1,
 				 "%s %s: second write error... ERROR %08X\n",
 				 tag,
@@ -808,7 +869,7 @@ int fts_writeU8UXthenWriteU8UX(u8 cmd1, AddrSize addrSize1, u8 cmd2, AddrSize
   */
 /* this function works only if the sum of two addresses in the two commands is
  * max 8 bytes */
-int fts_writeU8UXthenWriteReadU8UX(u8 cmd1, AddrSize addrSize1, u8 cmd2,
+int fts_writeU8UXthenWriteReadU8UX(struct fts_ts_info *info, u8 cmd1, AddrSize addrSize1, u8 cmd2,
 				   AddrSize addrSize2, u64 address, u8 *outBuf,
 				   int byteToRead, int hasDummyByte)
 {
@@ -845,14 +906,14 @@ int fts_writeU8UXthenWriteReadU8UX(u8 cmd1, AddrSize addrSize1, u8 cmd2,
 							       addrSize2 - 1 -
 							       i) * 8)) & 0xFF);
 
-		if (fts_write(finalCmd1, 1 + addrSize1) < OK) {
+		if (fts_write(info, finalCmd1, 1 + addrSize1) < OK) {
 			logError(1, "%s %s: first write error... ERROR %08X\n",
 				 tag, __func__, ERROR_BUS_W);
 			return ERROR_BUS_W;
 		}
 
 		if (hasDummyByte == 1) {
-			if (fts_writeRead(finalCmd2, 1 + addrSize2, buff,
+			if (fts_writeRead(info, finalCmd2, 1 + addrSize2, buff,
 					  toRead + 1) < OK) {
 				logError(1,
 					 "%s %s: read error... ERROR %08X\n",
@@ -862,7 +923,7 @@ int fts_writeU8UXthenWriteReadU8UX(u8 cmd1, AddrSize addrSize1, u8 cmd2,
 			}
 			memcpy(outBuf, buff + 1, toRead);
 		} else {
-			if (fts_writeRead(finalCmd2, 1 + addrSize2, buff,
+			if (fts_writeRead(info, finalCmd2, 1 + addrSize2, buff,
 					  toRead) < OK) {
 				logError(1,
 					 "%s %s: read error... ERROR %08X\n",

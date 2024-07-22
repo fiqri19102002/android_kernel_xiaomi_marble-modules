@@ -1,38 +1,37 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
-  * fts.c
-  *
-  * FTS Capacitive touch screen controller (FingerTipS)
-  *
-  * Copyright (C) 2016-2019, STMicroelectronics Limited.
-  * Authors: AMG(Analog Mems Group)
-  *
-  *             marco.cali@st.com
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-  * published by the Free Software Foundation.
-  *
-  * THE PRESENT SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES
-  * OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED, FOR THE SOLE
-  * PURPOSE TO SUPPORT YOUR APPLICATION DEVELOPMENT.
-  * AS A RESULT, STMICROELECTRONICS SHALL NOT BE HELD LIABLE FOR ANY DIRECT,
-  * INDIRECT OR CONSEQUENTIAL DAMAGES WITH RESPECT TO ANY CLAIMS ARISING FROM
-  * THE
-  * CONTENT OF SUCH SOFTWARE AND/OR THE USE MADE BY CUSTOMERS OF THE CODING
-  * INFORMATION CONTAINED HEREIN IN CONNECTION WITH THEIR PRODUCTS.
-  *
-  * THIS SOFTWARE IS SPECIFICALLY DESIGNED FOR EXCLUSIVE USE WITH ST PARTS.
-  *
-  * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
-  */
-
+ * fts.c
+ *
+ * FTS Capacitive touch screen controller (FingerTipS)
+ *
+ * Copyright (C) 2016-2019, STMicroelectronics Limited.
+ * Authors: AMG(Analog Mems Group)
+ *
+ *             marco.cali@st.com
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * THE PRESENT SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES
+ * OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED, FOR THE SOLE
+ * PURPOSE TO SUPPORT YOUR APPLICATION DEVELOPMENT.
+ * AS A RESULT, STMICROELECTRONICS SHALL NOT BE HELD LIABLE FOR ANY DIRECT,
+ * INDIRECT OR CONSEQUENTIAL DAMAGES WITH RESPECT TO ANY CLAIMS ARISING FROM
+ * THE
+ * CONTENT OF SUCH SOFTWARE AND/OR THE USE MADE BY CUSTOMERS OF THE CODING
+ * INFORMATION CONTAINED HEREIN IN CONNECTION WITH THEIR PRODUCTS.
+ *
+ * THIS SOFTWARE IS SPECIFICALLY DESIGNED FOR EXCLUSIVE USE WITH ST PARTS.
+ *
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ */
 
 /*!
-  * \file fts.c
-  * \brief It is the main file which contains all the most important functions
-  * generally used by a device driver the driver
-  */
+ * \file fts.c
+ * \brief It is the main file which contains all the most important functions
+ * generally used by a device driver the driver
+ */
 #include <linux/device.h>
 
 #include <linux/init.h>
@@ -83,8 +82,8 @@
 
 
 /**
-  * Event handler installer helpers
-  */
+ * Event handler installer helpers
+ */
 #define event_id(_e)		(EVT_ID_##_e >> 4)
 #define handler_name(_h)	fts_##_h##_event_handler
 
@@ -97,8 +96,6 @@
 #define TYPE_B_PROTOCOL
 #endif
 
-
-extern SysInfo systemInfo;
 extern TestToDo tests;
 #ifdef GESTURE_MODE
 extern struct mutex gestureMask_mutex;
@@ -106,13 +103,16 @@ extern struct mutex gestureMask_mutex;
 
 char tag[8] = "[ FTS ]\0";
 char fts_ts_phys[64];	/* /< buffer which store the input device name assigned
-			 * by the kernel */
+			 * by the kernel
+			 */
 
 static u32 typeOfComand[CMD_STR_LEN] = { 0 };	/* /< buffer used to store the
-						  * command sent from the MP
-						  * device file node */
+						 * command sent from the MP
+						 * device file node
+						 */
 static int numberParameters;	/* /< number of parameter passed through the MP
-				  * device file node */
+				 * device file node
+				 */
 #ifdef USE_ONE_FILE_NODE
 static int feature_feasibility = ERROR_OP_NOT_ALLOW;
 #endif
@@ -126,11 +126,9 @@ extern struct mutex gestureMask_mutex;
 
 #ifdef PHONE_KEY
 static u8 key_mask = 0x00;	/* /< store the last update of the key mask
-				 * published by the IC */
+				 * published by the IC
+				 */
 #endif
-
-
-extern struct mutex fts_int;
 
 
 
@@ -140,6 +138,8 @@ static int fts_mode_handler(struct fts_ts_info *info, int force);
 static int fts_enable_reg(struct fts_ts_info *info, bool enable);
 
 static int fts_chip_initialization(struct fts_ts_info *info, int init_type);
+static irqreturn_t st_irq_handler(int irq, void *data);
+
 #if defined(CONFIG_DRM)
 static struct drm_panel *active_panel;
 static void st_ts_panel_notifier_callback(enum panel_event_notifier_tag tag,
@@ -169,10 +169,10 @@ static int st_register_for_panel_events(struct device_node *dp,
 
 
 /**
-  * Release all the touches in the linux input subsystem
-  * @param info pointer to fts_ts_info which contains info about the device and
-  * its hw setup
-  */
+ * Release all the touches in the linux input subsystem
+ * @param info pointer to fts_ts_info which contains info about the device and
+ * its hw setup
+ */
 void release_all_touches(struct fts_ts_info *info)
 {
 	unsigned int type = MT_TOOL_FINGER;
@@ -198,43 +198,43 @@ void release_all_touches(struct fts_ts_info *info)
 
 
 /**
-  * @defgroup file_nodes Driver File Nodes
-  * Driver publish a series of file nodes used to provide several utilities
-  * to the host and give him access to different API.
-  * @{
-  */
+ * @defgroup file_nodes Driver File Nodes
+ * Driver publish a series of file nodes used to provide several utilities
+ * to the host and give him access to different API.
+ * @{
+ */
 
 /**
-  * @defgroup device_file_nodes Device File Nodes
-  * @ingroup file_nodes
-  * Device File Nodes \n
-  * There are several file nodes that are associated to the device and which
-  * are designed to be used by the host to enable/disable features or trigger
-  * some system specific actions \n
-  * Usually their final path depend on the definition of device tree node of
-  * the IC (e.g /sys/devices/soc.0/f9928000.i2c/i2c-6/6-0049)
-  * @{
-  */
+ * @defgroup device_file_nodes Device File Nodes
+ * @ingroup file_nodes
+ * Device File Nodes \n
+ * There are several file nodes that are associated to the device and which
+ * are designed to be used by the host to enable/disable features or trigger
+ * some system specific actions \n
+ * Usually their final path depend on the definition of device tree node of
+ * the IC (e.g /sys/devices/soc.0/f9928000.i2c/i2c-6/6-0049)
+ * @{
+ */
 /***************************************** FW UPGGRADE
  * ***************************************************/
 
 /**
-  * File node function to Update firmware from shell \n
-  * echo path_to_fw X Y > fwupdate   perform a fw update \n
-  * where: \n
-  * path_to_fw = file name or path of the the FW to burn, if "NULL" the default
-  * approach selected in the driver will be used\n
-  * X = 0/1 to force the FW update whichever fw_version and config_id;
-  * 0=perform a fw update only if the fw in the file is newer than the fw in the
-  * chip \n
-  * Y = 0/1 keep the initialization data; 0 = will erase the initialization data
-  * from flash, 1 = will keep the initialization data
-  * the string returned in the shell is made up as follow: \n
-  * { = start byte \n
-  * X1X2X3X4 = 4 bytes in HEX format which represent an error code (00000000 no
-  * error) \n
-  * } = end byte
-  */
+ * File node function to Update firmware from shell \n
+ * echo path_to_fw X Y > fwupdate   perform a fw update \n
+ * where: \n
+ * path_to_fw = file name or path of the FW to burn, if "NULL" the default
+ * approach selected in the driver will be used\n
+ * X = 0/1 to force the FW update whichever fw_version and config_id;
+ * 0=perform a fw update only if the fw in the file is newer than the fw in the
+ * chip \n
+ * Y = 0/1 keep the initialization data; 0 = will erase the initialization data
+ * from flash, 1 = will keep the initialization data
+ * the string returned in the shell is made up as follow: \n
+ * { = start byte \n
+ * X1X2X3X4 = 4 bytes in HEX format which represent an error code (00000000 no
+ * error) \n
+ * } = end byte
+ */
 static ssize_t fts_fwupdate_store(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t count)
@@ -253,7 +253,7 @@ static ssize_t fts_fwupdate_store(struct device *dev,
 			tag, path, mode[0], mode[1]);
 
 
-		ret = flashProcedure(path, mode[0], mode[1]);
+		ret = flashProcedure(info, path, mode[0], mode[1]);
 
 		info->fwupdate_stat = ret;
 
@@ -280,44 +280,44 @@ static ssize_t fts_fwupdate_show(struct device *dev,
 
 
 /***************************************** UTILITIES
-  * (current fw_ver/conf_id, active mode, file fw_ver/conf_id)
-  ***************************************************/
+ * (current fw_ver/conf_id, active mode, file fw_ver/conf_id)
+ ***************************************************/
 /**
-  * File node to show on terminal external release version in Little Endian \n
-  * (first the less significant byte) \n
-  * cat appid	show the external release version of the FW running in the IC
-  */
+ * File node to show on terminal external release version in Little Endian \n
+ * (first the less significant byte) \n
+ * cat appid	show the external release version of the FW running in the IC
+ */
 static ssize_t fts_appid_show(struct device *dev, struct device_attribute *attr,
 			      char *buf)
 {
 	int error;
 	char temp[100];
 
+	struct fts_ts_info *info = dev_get_drvdata(dev);
 	error = snprintf(buf, PAGE_SIZE, "%s\n", printHex("EXT Release = ",
-							  systemInfo.
-							  u8_releaseInfo,
-							  EXTERNAL_RELEASE_INFO_SIZE,
-							  temp));
+							info->systemInfo.u8_releaseInfo,
+							EXTERNAL_RELEASE_INFO_SIZE,
+							temp));
 
 	return error;
 }
 
 /**
-  * File node to show on terminal the mode that is active on the IC \n
-  * cat mode_active		    to show the bitmask which indicate
-  * the modes/features which are running on the IC in a specific instant of time
-  * the string returned in the shell is made up as follow: \n
-  * { = start byte \n
-  * X1 = 1 byte in HEX format which represent the actual running scan mode
-  * (@link scan_opt Scan Mode Options @endlink) \n
-  * X2 = 1 byte in HEX format which represent the bitmask on which is running
-  * the actual scan mode \n
-  * X3X4 = 2 bytes in HEX format which represent a bitmask of the features that
-  * are enabled at this moment (@link feat_opt Feature Selection Options
-  * @endlink) \n
-  * } = end byte
-  * @see fts_mode_handler()
-  */
+ * File node to show on terminal the mode that is active on the IC \n
+ * cat mode_active		    to show the bitmask which indicate
+ * the modes/features which are running on the IC in a specific instant of time
+ * the string returned in the shell is made up as follow: \n
+ * { = start byte \n
+ * X1 = 1 byte in HEX format which represent the actual running scan mode
+ * (@link scan_opt Scan Mode Options @endlink) \n
+ * X2 = 1 byte in HEX format which represent the bitmask on which is running
+ * the actual scan mode \n
+ * X3X4 = 2 bytes in HEX format which represent a bitmask of the features that
+ * are enabled at this moment (@link feat_opt Feature Selection Options
+ * @endlink) \n
+ * } = end byte
+ * @see fts_mode_handler()
+ */
 static ssize_t fts_mode_active_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -328,26 +328,27 @@ static ssize_t fts_mode_active_show(struct device *dev,
 }
 
 /**
-  * File node to show the fw_ver and config_id of the FW file
-  * cat fw_file_test			show on the kernel log external release
-  * of the FW stored in the fw file/header file
-  */
+ * File node to show the fw_ver and config_id of the FW file
+ * cat fw_file_test			show on the kernel log external release
+ * of the FW stored in the fw file/header file
+ */
 static ssize_t fts_fw_test_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
 	Firmware fw;
 	int ret;
 	char temp[100] = { 0 };
+	struct fts_ts_info *info = dev_get_drvdata(dev);
 
 	fw.data = NULL;
-	ret = readFwFile(PATH_FILE_FW, &fw, 0);
+	ret = readFwFile(info, PATH_FILE_FW, &fw, 0);
 
 	if (ret < OK)
 		logError(1, "%s Error during reading FW file! ERROR %08X\n",
 			 tag, ret);
 	else
 		logError(1, "%s %s, size = %d bytes\n", tag, printHex(
-				 "EXT Release = ", systemInfo.u8_releaseInfo,
+				 "EXT Release = ", info->systemInfo.u8_releaseInfo,
 				 EXTERNAL_RELEASE_INFO_SIZE, temp),
 			 fw.data_size);
 
@@ -1536,7 +1537,7 @@ static ssize_t stm_fts_cmd_show(struct device *dev,
 
 
 	if (numberParameters >= 1) {
-		res = fts_disableInterrupt();
+		res = fts_disableInterrupt(info);
 		if (res < 0) {
 			logError(0, "%s fts_disableInterrupt: ERROR %08X\n",
 				 tag, res);
@@ -1559,12 +1560,12 @@ static ssize_t stm_fts_cmd_show(struct device *dev,
 		switch (typeOfComand[0]) {
 		/*ITO TEST*/
 		case 0x01:
-			res = production_test_ito(LIMITS_FILE, &tests);
+			res = production_test_ito(info, LIMITS_FILE, &tests);
 			break;
 		/*PRODUCTION TEST*/
 		case 0x00:
 #ifndef COMPUTE_INIT_METHOD
-			if (systemInfo.u8_cfgAfeVer != systemInfo.u8_cxAfeVer) {
+			if (info->systemInfo.u8_cfgAfeVer != info->systemInfo.u8_cxAfeVer) {
 				res = ERROR_OP_NOT_ALLOW;
 				logError(0,
 					 "%s Miss match in CX version! MP test not allowed with wrong CX memory! ERROR %08X\n",
@@ -1572,7 +1573,7 @@ static ssize_t stm_fts_cmd_show(struct device *dev,
 				break;
 			}
 #else
-			if (systemInfo.u8_mpFlag != MP_FLAG_FACTORY) {
+			if (info->systemInfo.u8_mpFlag != MP_FLAG_FACTORY) {
 				init_type = SPECIAL_FULL_PANEL_INIT;
 				logError(0,
 					"%s Select Full Panel Init!\n", tag);
@@ -1583,24 +1584,24 @@ static ssize_t stm_fts_cmd_show(struct device *dev,
 			}
 #endif
 
-			res = production_test_main(LIMITS_FILE, 1, init_type,
+			res = production_test_main(info, LIMITS_FILE, 1, init_type,
 						   &tests, MP_FLAG_FACTORY);
 			break;
 		/*read mutual raw*/
 		case 0x13:
 			logError(0, "%s Get 1 MS Frame\n", tag);
 			if (numberParameters >= 2 && typeOfComand[1] == 1)
-				setScanMode(SCAN_MODE_LOCKED, LOCKED_LP_ACTIVE);
+				setScanMode(info, SCAN_MODE_LOCKED, LOCKED_LP_ACTIVE);
 			else
-				setScanMode(SCAN_MODE_LOCKED, LOCKED_ACTIVE);
+				setScanMode(info, SCAN_MODE_LOCKED, LOCKED_ACTIVE);
 			msleep(WAIT_FOR_FRESH_FRAMES);
-			setScanMode(SCAN_MODE_ACTIVE, 0x00);
+			setScanMode(info, SCAN_MODE_ACTIVE, 0x00);
 			msleep(WAIT_AFTER_SENSEOFF);
-			flushFIFO();	/* delete the events related to some
+			flushFIFO(info);	/* delete the events related to some
 					 * touch (allow to call this function
 					 * while touching the screen without
 					 * having a flooding of the FIFO) */
-			res = getMSFrame3(MS_RAW, &frameMS);
+			res = getMSFrame3(info, MS_RAW, &frameMS);
 			if (res < 0)
 				logError(0,
 					 "%s Error while taking the MS frame... ERROR %08X\n",
@@ -1628,20 +1629,20 @@ static ssize_t stm_fts_cmd_show(struct device *dev,
 		case 0x15:
 			logError(0, "%s Get 1 SS Frame\n", tag);
 			if (numberParameters >= 2 && typeOfComand[1] == 1)
-				setScanMode(SCAN_MODE_LOCKED, LOCKED_LP_DETECT);
+				setScanMode(info, SCAN_MODE_LOCKED, LOCKED_LP_DETECT);
 			else
-				setScanMode(SCAN_MODE_LOCKED, LOCKED_ACTIVE);
+				setScanMode(info, SCAN_MODE_LOCKED, LOCKED_ACTIVE);
 			msleep(WAIT_FOR_FRESH_FRAMES);
-			setScanMode(SCAN_MODE_ACTIVE, 0x00);
+			setScanMode(info, SCAN_MODE_ACTIVE, 0x00);
 			msleep(WAIT_AFTER_SENSEOFF);
-			flushFIFO();	/* delete the events related to some
+			flushFIFO(info);	/* delete the events related to some
 					 * touch (allow to call this function
 					 * while touching the screen without
 					 * having a flooding of the FIFO) */
 			if (numberParameters >= 2 && typeOfComand[1] == 1)
-				res = getSSFrame3(SS_DETECT_RAW, &frameSS);
+				res = getSSFrame3(info, SS_DETECT_RAW, &frameSS);
 			else
-				res = getSSFrame3(SS_RAW, &frameSS);
+				res = getSSFrame3(info, SS_RAW, &frameSS);
 
 			if (res < OK)
 				logError(0,
@@ -1675,7 +1676,7 @@ static ssize_t stm_fts_cmd_show(struct device *dev,
 
 		case 0x14:	/* read mutual comp data */
 			logError(0, "%s Get MS Compensation Data\n", tag);
-			res = readMutualSenseCompensationData(LOAD_CX_MS_TOUCH,
+			res = readMutualSenseCompensationData(info, LOAD_CX_MS_TOUCH,
 							      &compData);
 
 			if (res < 0)
@@ -1702,7 +1703,7 @@ static ssize_t stm_fts_cmd_show(struct device *dev,
 
 		case 0x16:	/* read self comp data */
 			logError(0, "%s Get SS Compensation Data...\n", tag);
-			res = readSelfSenseCompensationData(LOAD_CX_SS_TOUCH,
+			res = readSelfSenseCompensationData(info, LOAD_CX_SS_TOUCH,
 							    &comData);
 			if (res < 0)
 				logError(0,
@@ -1743,30 +1744,30 @@ static ssize_t stm_fts_cmd_show(struct device *dev,
 			break;
 
 		case 0x03:	/* MS Raw DATA TEST */
-			res = fts_system_reset();
+			res = fts_system_reset(info);
 			if (res >= OK)
-				res = production_test_ms_raw(LIMITS_FILE, 1,
+				res = production_test_ms_raw(info, LIMITS_FILE, 1,
 							     &tests);
 			break;
 
 		case 0x04:	/* MS CX DATA TEST */
-			res = fts_system_reset();
+			res = fts_system_reset(info);
 			if (res >= OK)
-				res = production_test_ms_cx(LIMITS_FILE, 1,
+				res = production_test_ms_cx(info, LIMITS_FILE, 1,
 							    &tests);
 			break;
 
 		case 0x05:	/* SS RAW DATA TEST */
-			res = fts_system_reset();
+			res = fts_system_reset(info);
 			if (res >= OK)
-				res = production_test_ss_raw(LIMITS_FILE, 1,
+				res = production_test_ss_raw(info, LIMITS_FILE, 1,
 							     &tests);
 			break;
 
 		case 0x06:	/* SS IX CX DATA TEST */
-			res = fts_system_reset();
+			res = fts_system_reset(info);
 			if (res >= OK)
-				res = production_test_ss_ix_cx(LIMITS_FILE, 1,
+				res = production_test_ss_ix_cx(info, LIMITS_FILE, 1,
 							       &tests);
 			break;
 
@@ -1774,7 +1775,7 @@ static ssize_t stm_fts_cmd_show(struct device *dev,
 		case 0xF0:
 		case 0xF1:	/* TOUCH ENABLE/DISABLE */
 			doClean = (int)(typeOfComand[0] & 0x01);
-			res = cleanUp(doClean);
+			res = cleanUp(info, doClean);
 			break;
 
 		default:
@@ -1787,7 +1788,7 @@ static ssize_t stm_fts_cmd_show(struct device *dev,
 
 		doClean = fts_mode_handler(info, 1);
 		if (typeOfComand[0] != 0xF0)
-			doClean |= fts_enableInterrupt();
+			doClean |= fts_enableInterrupt(info);
 		if (doClean < 0)
 			logError(0, "%s %s: ERROR %08X\n", tag, __func__,
 				 (doClean | ERROR_ENABLE_INTER));
@@ -2299,9 +2300,9 @@ static void fts_error_event_handler(struct fts_ts_info *info, unsigned
 
 		fts_chip_powercycle(info);
 
-		error = fts_system_reset();
+		error = fts_system_reset(info);
 		error |= fts_mode_handler(info, 0);
-		error |= fts_enableInterrupt();
+		error |= fts_enableInterrupt(info);
 		if (error < OK)
 			logError(1,
 				 "%s %s Cannot restore the device ERROR %08X\n",
@@ -2312,12 +2313,12 @@ static void fts_error_event_handler(struct fts_ts_info *info, unsigned
 	case EVT_TYPE_ERROR_HARD_FAULT:	/* hard fault */
 	case EVT_TYPE_ERROR_WATCHDOG:	/* watch dog timer */
 	{
-		dumpErrorInfo(NULL, 0);
+		dumpErrorInfo(info, NULL, 0);
 		/* before reset clear all slots */
 		release_all_touches(info);
-		error = fts_system_reset();
+		error = fts_system_reset(info);
 		error |= fts_mode_handler(info, 0);
-		error |= fts_enableInterrupt();
+		error |= fts_enableInterrupt(info);
 		if (error < OK)
 			logError(1,
 				 "%s %s Cannot reset the device ERROR %08X\n",
@@ -2344,8 +2345,8 @@ static void fts_controller_ready_event_handler(struct fts_ts_info *info,
 		 event[5],
 		 event[6], event[7]);
 	release_all_touches(info);
-	setSystemResetedUp(1);
-	setSystemResetedDown(1);
+	setSystemResetedUp(info, 1);
+	setSystemResetedDown(info, 1);
 	error = fts_mode_handler(info, 0);
 	if (error < OK)
 		logError(1,
@@ -2410,7 +2411,7 @@ static void fts_status_event_handler(struct fts_ts_info *info, unsigned
 				 tag, __func__, event[2], event[3], event[4],
 				 event[5],
 				 event[6], event[7]);
-			break;	
+			break;
 
 		case 0x20:
 			logError(1,
@@ -2793,7 +2794,7 @@ static void fts_event_handler(struct work_struct *work)
 	regAdd = FIFO_CMD_READONE;
 
 	for (count = 0; count < FIFO_DEPTH; count++) {
-		error = fts_writeReadU8UX(regAdd, 0, 0, data, FIFO_EVENT_SIZE,
+		error = fts_writeReadU8UX(info, regAdd, 0, 0, data, FIFO_EVENT_SIZE,
 					  DUMMY_FIFO);
 
 		/*logError(0, "%s %s event = %02X %02X %02X %02X %02X %02X %02X %02X\n",
@@ -2861,7 +2862,7 @@ int fts_fw_update(struct fts_ts_info *info)
 	logError(1, "%s Fw Auto Update is starting...\n", tag);
 
 	/* check CRC status */
-	ret = fts_crc_check();
+	ret = fts_crc_check(info);
 	if (ret > OK) {
 		logError(1, "%s %s: CRC Error or NO FW!\n", tag, __func__);
 		crc_status = ret;
@@ -2872,14 +2873,14 @@ int fts_fw_update(struct fts_ts_info *info)
 			 tag, __func__);
 	}
 
-	retval = flashProcedure(PATH_FILE_FW, crc_status, keep_cx);
+	retval = flashProcedure(info, PATH_FILE_FW, crc_status, keep_cx);
 	if ((retval & 0xFF000000) == ERROR_FLASH_PROCEDURE) {
 		logError(1,
 			 "%s %s: firmware update failed and retry! ERROR %08X\n",
 			 tag,
 			 __func__, retval);
 		fts_chip_powercycle(info);	/* power reset */
-		retval1 = flashProcedure(PATH_FILE_FW, crc_status, keep_cx);
+		retval1 = flashProcedure(info, PATH_FILE_FW, crc_status, keep_cx);
 		if ((retval1 & 0xFF000000) == ERROR_FLASH_PROCEDURE) {
 			logError(1,
 				 "%s %s: firmware update failed again!  ERROR %08X\n",
@@ -2890,7 +2891,7 @@ int fts_fw_update(struct fts_ts_info *info)
 
 
 	logError(1, "%s %s: Verifying if CX CRC Error...\n", tag, __func__);
-	ret = fts_system_reset();
+	ret = fts_system_reset(info);
 	if (ret >= OK) {
 		ret = pollForErrorType(error_to_search, 4);
 		if (ret < OK) {
@@ -2928,7 +2929,7 @@ int fts_fw_update(struct fts_ts_info *info)
 				 "%s %s: Try to recovery with CX in fw file...\n",
 				 tag,
 				 __func__);
-			flashProcedure(PATH_FILE_FW, CRC_CX, 0);
+			flashProcedure(info, PATH_FILE_FW, CRC_CX, 0);
 			logError(1, "%s %s: Refresh panel init data...\n", tag,
 				 __func__);
 #else
@@ -2949,27 +2950,27 @@ int fts_fw_update(struct fts_ts_info *info)
 
 	if (init_type != SPECIAL_FULL_PANEL_INIT) {
 #if defined(PRE_SAVED_METHOD) || defined(COMPUTE_INIT_METHOD)
-		if ((systemInfo.u8_cfgAfeVer != systemInfo.u8_cxAfeVer)
+		if ((info->systemInfo.u8_cfgAfeVer != info->systemInfo.u8_cxAfeVer)
 #ifdef COMPUTE_INIT_METHOD
-			|| ((systemInfo.u8_mpFlag != MP_FLAG_BOOT) &&
-				(systemInfo.u8_mpFlag != MP_FLAG_FACTORY))
+			|| ((info->systemInfo.u8_mpFlag != MP_FLAG_BOOT) &&
+				(info->systemInfo.u8_mpFlag != MP_FLAG_FACTORY))
 #endif
 			) {
 			init_type = SPECIAL_FULL_PANEL_INIT;
 			logError(0,
 				 "%s %s: Different CX AFE Ver: %02X != %02X or invalid MpFlag = %02X... Execute FULL Panel Init!\n",
-				 tag, __func__, systemInfo.u8_cfgAfeVer,
-				 systemInfo.u8_cxAfeVer, systemInfo.u8_mpFlag);
+				 tag, __func__, info->systemInfo.u8_cfgAfeVer,
+				 info->systemInfo.u8_cxAfeVer, info->systemInfo.u8_mpFlag);
 		} else
 #endif
-		if (systemInfo.u8_cfgAfeVer != systemInfo.u8_panelCfgAfeVer) {
-			init_type = SPECIAL_PANEL_INIT;
-			logError(0,
-				 "%s %s: Different Panel AFE Ver: %02X != %02X... Execute Panel Init!\n",
-				 tag, __func__, systemInfo.u8_cfgAfeVer,
-				 systemInfo.u8_panelCfgAfeVer);
-		} else
-			init_type = NO_INIT;
+			if (info->systemInfo.u8_cfgAfeVer != info->systemInfo.u8_panelCfgAfeVer) {
+				init_type = SPECIAL_PANEL_INIT;
+				logError(0,
+				"%s %s: Different Panel AFE Ver: %02X != %02X... Execute Panel Init!\n",
+				tag, __func__, info->systemInfo.u8_cfgAfeVer,
+				info->systemInfo.u8_panelCfgAfeVer);
+			} else
+				init_type = NO_INIT;
 	}
 
 
@@ -3035,9 +3036,9 @@ static int fts_chip_initialization(struct fts_ts_info *info, int init_type)
 	/* initialization error, retry initialization */
 	for (retry = 0; retry < RETRY_INIT_BOOT; retry++) {
 #ifndef COMPUTE_INIT_METHOD
-		ret2 = production_test_initialization(init_type);
+		ret2 = production_test_initialization(info, init_type);
 #else
-		ret2 = production_test_main(LIMITS_FILE, 1, init_type, &tests,
+		ret2 = production_test_main(info, LIMITS_FILE, 1, init_type, &tests,
 			MP_FLAG_BOOT);
 #endif
 		if (ret2 == OK)
@@ -3113,10 +3114,10 @@ static int fts_interrupt_install(struct fts_ts_info *info)
 
 #ifndef CONFIG_ARCH_QTI_VM
 	/* disable interrupts in any case */
-	error = fts_disableInterrupt();
+	error = fts_disableInterrupt(info);
 
 	logError(1, "%s Interrupt Mode\n", tag);
-	if (request_irq(info->irq, fts_interrupt_handler,
+	if (request_irq(info->irq, st_irq_handler,
 			info->board->irq_flags, FTS_TS_DRV_NAME, info)) {
 		logError(1, "%s Request irq failed\n", tag);
 		kfree(info->event_dispatch_table);
@@ -3133,7 +3134,7 @@ static int fts_interrupt_install(struct fts_ts_info *info)
   */
 static void fts_interrupt_uninstall(struct fts_ts_info *info)
 {
-	fts_disableInterrupt();
+	fts_disableInterrupt(info);
 
 	kfree(info->event_dispatch_table);
 
@@ -3163,7 +3164,7 @@ static int fts_init(struct fts_ts_info *info)
 	int error;
 	u8 readData[3];
 
-	if (getClient()->bus_type == BUS_SPI) {
+	if (getClient(info)->bus_type == BUS_SPI) {
 #if defined(SPI4_WIRE)
 		/* configure manually SPI4 because when no fw is running the chip use
 		 * SPI3 by default
@@ -3172,7 +3173,7 @@ static int fts_init(struct fts_ts_info *info)
 
 		logError(0, "%s Setting SPI4 mode...\n", tag);
 		cmd[0] = 0x10;
-		error = fts_writeU8UX(FTS_CMD_HW_REG_W, ADDR_SIZE_HW_REG,
+		error = fts_writeU8UX(info, FTS_CMD_HW_REG_W, ADDR_SIZE_HW_REG,
 				    ADDR_GPIO_DIRECTION, cmd, 1);
 		if (error < OK) {
 			logError(1, "%s can not set gpio dir ERROR %08X\n",
@@ -3181,7 +3182,7 @@ static int fts_init(struct fts_ts_info *info)
 		}
 
 		cmd[0] = 0x02;
-		error = fts_writeU8UX(FTS_CMD_HW_REG_W, ADDR_SIZE_HW_REG,
+		error = fts_writeU8UX(info, FTS_CMD_HW_REG_W, ADDR_SIZE_HW_REG,
 				    ADDR_GPIO_PULLUP, cmd, 1);
 		if (error < OK) {
 			logError(1, "%s can not set gpio pull-up ERROR %08X\n",
@@ -3195,7 +3196,7 @@ static int fts_init(struct fts_ts_info *info)
 #else
 		cmd[0] = 0x07;
 #endif
-		error = fts_writeU8UX(FTS_CMD_HW_REG_W, ADDR_SIZE_HW_REG,
+		error = fts_writeU8UX(info, FTS_CMD_HW_REG_W, ADDR_SIZE_HW_REG,
 				    ADDR_GPIO_CONFIG_REG3, cmd, 1);
 		if (error < OK) {
 			logError(1, "%s can not set gpio config ERROR %08X\n",
@@ -3205,7 +3206,7 @@ static int fts_init(struct fts_ts_info *info)
 
 #else
 		cmd[0] = 0x07;
-		error = fts_writeU8UX(FTS_CMD_HW_REG_W, ADDR_SIZE_HW_REG,
+		error = fts_writeU8UX(info, FTS_CMD_HW_REG_W, ADDR_SIZE_HW_REG,
 				    ADDR_GPIO_CONFIG_REG2, cmd, 1);
 		if (error < OK) {
 			logError(1, "%s can not set gpio config ERROR %08X\n",
@@ -3215,7 +3216,7 @@ static int fts_init(struct fts_ts_info *info)
 #endif
 
 		cmd[0] = 0x30;
-		error = fts_writeU8UX(FTS_CMD_HW_REG_W, ADDR_SIZE_HW_REG,
+		error = fts_writeU8UX(info, FTS_CMD_HW_REG_W, ADDR_SIZE_HW_REG,
 				    ADDR_GPIO_CONFIG_REG0, cmd, 1);
 		if (error < OK) {
 			logError(1, "%s can not set gpio config ERROR %08X\n",
@@ -3224,7 +3225,7 @@ static int fts_init(struct fts_ts_info *info)
 		}
 
 		cmd[0] = SPI4_MASK;
-		error = fts_writeU8UX(FTS_CMD_HW_REG_W, ADDR_SIZE_HW_REG, ADDR_ICR, cmd,
+		error = fts_writeU8UX(info, FTS_CMD_HW_REG_W, ADDR_SIZE_HW_REG, ADDR_ICR, cmd,
 				    1);
 		if (error < OK) {
 			logError(1, "%s can not set spi4 mode ERROR %08X\n",
@@ -3236,7 +3237,7 @@ static int fts_init(struct fts_ts_info *info)
 	}
 
 	logError(1, "%s Reading chip id\n", tag);
-	error = fts_writeReadU8UX(FTS_CMD_HW_REG_R, ADDR_SIZE_HW_REG,
+	error = fts_writeReadU8UX(info, FTS_CMD_HW_REG_R, ADDR_SIZE_HW_REG,
 					    ADDR_DCHIP_ID, readData, 2, DUMMY_FIFO);
 	logError(1, "%s chip id: %02X %02X!\n",tag, readData[0], readData[1]);
 
@@ -3249,7 +3250,7 @@ static int fts_init(struct fts_ts_info *info)
 		logError(1, "%s chip id read successful!\n", tag);
 
 
-	error = fts_system_reset();
+	error = fts_system_reset(info);
 	if (error < OK && isI2cError(error)) {
 		logError(1, "%s Cannot reset the device! ERROR %08X\n", tag,
 			 error);
@@ -3257,9 +3258,9 @@ static int fts_init(struct fts_ts_info *info)
 	} else {
 		if (error == (ERROR_TIMEOUT | ERROR_SYSTEM_RESET_FAIL)) {
 			logError(1, "%s Setting default Sys INFO!\n", tag);
-			error = defaultSysInfo(0);
+			error = defaultSysInfo(info, 0);
 		} else {
-			error = readSysInfo(0);	/* system reset OK */
+			error = readSysInfo(info, 0);	/* system reset OK */
 			if (error < OK) {
 				if (!isI2cError(error))
 					error = OK;
@@ -3288,7 +3289,7 @@ int fts_chip_powercycle(struct fts_ts_info *info)
 	logError(1, "%s %s: Disabling IRQ...\n", tag, __func__);
 	/* if IRQ pin is short with DVDD a call to the ISR will triggered when
 	  * the regulator is turned off if IRQ not disabled */
-	fts_disableInterrupt();
+	fts_disableInterrupt(info);
 
 	if (info->vdd_reg) {
 		error = regulator_disable(info->vdd_reg);
@@ -3340,8 +3341,8 @@ int fts_chip_powercycle(struct fts_ts_info *info)
 
 	logError(1, "%s %s: Power Cycle Finished! ERROR CODE = %08x\n", tag,
 		 __func__, error);
-	setSystemResetedUp(1);
-	setSystemResetedDown(1);
+	setSystemResetedUp(info, 1);
+	setSystemResetedDown(info, 1);
 	return error;
 }
 
@@ -3373,7 +3374,7 @@ static int fts_init_sensing(struct fts_ts_info *info)
 #endif
 
 	/* error |= fts_enableInterrupt(); */	/* enable the interrupt */
-	error |= fts_resetDisableIrqCount();
+	error |= fts_resetDisableIrqCount(info);
 
 	if (error < OK)
 		logError(1, "%s %s Init after Probe error (ERROR = %08X)\n",
@@ -3426,7 +3427,7 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 		logError(0, "%s %s: Sense OFF!\n", tag, __func__);
 		/* for speed reason (no need to check echo in this case and
 		 * interrupt can be enabled) */
-		ret = setScanMode(SCAN_MODE_ACTIVE, 0x00);
+		ret = setScanMode(info, SCAN_MODE_ACTIVE, 0x00);
 		res |= ret;	/* to avoid warning unsused ret variable when
 				 * all the features are disabled */
 
@@ -3434,7 +3435,7 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 		if (info->gesture_enabled == 1) {
 			logError(0, "%s %s: enter in gesture mode !\n", tag,
 				 __func__);
-			res = enterGestureMode(isSystemResettedDown());
+			res = enterGestureMode(info, isSystemResettedDown(info));
 			if (res >= OK) {
 				enable_irq_wake(info->irq);
 				fromIDtoMask(FEAT_SEL_GESTURE,
@@ -3448,19 +3449,19 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 		}
 #endif
 
-		setSystemResetedDown(0);
+		setSystemResetedDown(info, 0);
 		break;
 
 	case 1:	/* screen up */
 		logError(0, "%s %s: Screen ON...\n", tag, __func__);
 #ifdef GLOVE_MODE
 		if ((info->glove_enabled == FEAT_ENABLE &&
-		     isSystemResettedUp()) || force == 1) {
+		     isSystemResettedUp(info)) || force == 1) {
 			logError(0, "%s %s: Glove Mode setting...\n", tag,
 				 __func__);
 			settings[0] = info->glove_enabled;
 			/* required to satisfy also the disable case */
-			ret = setFeatures(FEAT_SEL_GLOVE, settings, 1);
+			ret = setFeatures(info, FEAT_SEL_GLOVE, settings, 1);
 			if (ret < OK)
 				logError(1,
 					 "%s %s: error during setting GLOVE_MODE! ERROR %08X\n",
@@ -3468,7 +3469,7 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 			res |= ret;
 
 			if (ret >= OK && info->glove_enabled == FEAT_ENABLE) {
-				fromIDtoMask(FEAT_SEL_GLOVE, (u8 *)&info->mode,
+				fromIDtoMask(info, FEAT_SEL_GLOVE, (u8 *)&info->mode,
 					     sizeof(info->mode));
 				logError(1, "%s %s: GLOVE_MODE Enabled!\n", tag,
 					 __func__);
@@ -3481,11 +3482,11 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 
 #ifdef COVER_MODE
 		if ((info->cover_enabled == FEAT_ENABLE &&
-		     isSystemResettedUp()) || force == 1) {
+		     isSystemResettedUp(info)) || force == 1) {
 			logError(0, "%s %s: Cover Mode setting...\n", tag,
 				 __func__);
 			settings[0] = info->cover_enabled;
-			ret = setFeatures(FEAT_SEL_COVER, settings, 1);
+			ret = setFeatures(info, FEAT_SEL_COVER, settings, 1);
 			if (ret < OK)
 				logError(1,
 					 "%s %s: error during setting COVER_MODE! ERROR %08X\n",
@@ -3503,13 +3504,13 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 		}
 #endif
 #ifdef CHARGER_MODE
-		if ((info->charger_enabled > 0 && isSystemResettedUp()) ||
+		if ((info->charger_enabled > 0 && isSystemResettedUp(info)) ||
 		    force == 1) {
 			logError(0, "%s %s: Charger Mode setting...\n", tag,
 				 __func__);
 
 			settings[0] = info->charger_enabled;
-			ret = setFeatures(FEAT_SEL_CHARGER, settings, 1);
+			ret = setFeatures(info, FEAT_SEL_CHARGER, settings, 1);
 			if (ret < OK)
 				logError(1,
 					 "%s %s: error during setting CHARGER_MODE! ERROR %08X\n",
@@ -3531,11 +3532,11 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 
 #ifdef GRIP_MODE
 		if ((info->grip_enabled == FEAT_ENABLE &&
-		     isSystemResettedUp()) || force == 1) {
+		     isSystemResettedUp(info)) || force == 1) {
 			logError(0, "%s %s: Grip Mode setting...\n", tag,
 				 __func__);
 			settings[0] = info->grip_enabled;
-			ret = setFeatures(FEAT_SEL_GRIP, settings, 1);
+			ret = setFeatures(info, FEAT_SEL_GRIP, settings, 1);
 			if (ret < OK)
 				logError(1,
 					 "%s %s: error during setting GRIP_MODE! ERROR %08X\n",
@@ -3559,12 +3560,12 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 		settings[0] = ACTIVE_MULTI_TOUCH;
 
 		logError(0, "%s %s: Sense ON!\n", tag, __func__);
-		res |= setScanMode(SCAN_MODE_ACTIVE, settings[0]);
+		res |= setScanMode(info, SCAN_MODE_ACTIVE, settings[0]);
 		info->mode |= (SCAN_MODE_ACTIVE << 24);
 		MODE_ACTIVE(info->mode, settings[0]);
 
 
-		setSystemResetedUp(0);
+		setSystemResetedUp(info, 0);
 		break;
 
 	default:
@@ -3595,7 +3596,7 @@ static void fts_resume_work(struct work_struct *work)
 
 	fts_enable_reg(info, true);
 
-	fts_system_reset();
+	fts_system_reset(info);
 
 	release_all_touches(info);
 
@@ -3603,7 +3604,7 @@ static void fts_resume_work(struct work_struct *work)
 
 	info->sensor_sleep = false;
 
-	fts_enableInterrupt();
+	fts_enableInterrupt(info);
 }
 
 /**
@@ -3624,7 +3625,7 @@ static void fts_suspend_work(struct work_struct *work)
 
 	info->sensor_sleep = true;
 
-	fts_disableInterrupt();
+	fts_disableInterrupt(info);
 
 	fts_enable_reg(info, false);
 }
@@ -3810,7 +3811,7 @@ static int fts_enable_reg(struct fts_ts_info *info, bool enable)
 
 	if (!enable) {
 		retval = 0;
-		goto disable_pwr_reg;
+		goto set_reset_gpio_input;
 	}
 
 	if (info->vdd_reg) {
@@ -3833,7 +3834,21 @@ static int fts_enable_reg(struct fts_ts_info *info, bool enable)
 		}
 	}
 
+	if (info->board->reset_gpio >= 0) {
+		retval = gpio_direction_output(info->board->reset_gpio, 0);
+		if (retval < 0) {
+			logError(1, "%s %s: Failed to configure reset GPIO\n",
+				 tag,
+				 __func__);
+			goto disable_pwr_reg;
+		}
+	}
+
 	return OK;
+
+set_reset_gpio_input:
+	if (info->board->reset_gpio >= 0)
+		retval = gpio_direction_input(info->board->reset_gpio);
 
 disable_pwr_reg:
 	if (info->avdd_reg)
@@ -4085,11 +4100,12 @@ static int st_ts_resume_helper(void *data)
 static int st_ts_enable_touch_irq(void *data, bool enable)
 {
 	int ret = 0;
+	struct fts_ts_info *info = data;
 
 	if (enable)
-		ret = fts_enableInterrupt();
+		ret = fts_enableInterrupt(info);
 	else
-		ret = fts_disableInterrupt();
+		ret = fts_disableInterrupt(info);
 
 	return ret;
 }
@@ -4109,6 +4125,7 @@ static int st_ts_post_la_tui_enable(void *data)
 {
 	struct fts_ts_info *info = data;
 
+	cancel_work_sync(&info->work);
 	release_all_touches(info);
 	mutex_unlock(&info->tui_transition_lock);
 	return 0;
@@ -4118,9 +4135,10 @@ static int st_ts_post_le_tui_enable(void *data)
 {
 	int error;
 	u8 readData[3];
+	struct fts_ts_info *info = data;
 
 	logError(1, "%s Reading chip id\n", tag);
-	error = fts_writeReadU8UX(FTS_CMD_HW_REG_R, ADDR_SIZE_HW_REG,
+	error = fts_writeReadU8UX(info, FTS_CMD_HW_REG_R, ADDR_SIZE_HW_REG,
 					    ADDR_DCHIP_ID, readData, 2, DUMMY_FIFO);
 	logError(1, "%s chip id: %02X %02X!\n", tag, readData[0], readData[1]);
 
@@ -4134,10 +4152,20 @@ static int st_ts_post_le_tui_enable(void *data)
 	return 0;
 }
 
+static int st_ts_pre_le_tui_disable(void *data)
+{
+	struct fts_ts_info *info = data;
+
+	flush_work(&info->work);
+
+	return 0;
+}
+
 static int st_ts_post_le_tui_disable(void *data)
 {
 	struct fts_ts_info *info = data;
 
+	cancel_work_sync(&info->work);
 	release_all_touches(info);
 	return 0;
 }
@@ -4170,6 +4198,28 @@ static irqreturn_t st_irq_handler(int irq, void *data)
 	mutex_unlock(&info->tui_transition_lock);
 
 	return IRQ_HANDLED;
+}
+
+/* get touch type */
+int fts_get_touch_type(struct device_node *np)
+{
+	const char *touch_type;
+	int ret;
+
+	ret = of_property_read_string(np, "st,touch-type", &touch_type);
+	if (ret) {
+		logError(1, "%s %s: No touch type\n", tag, __func__);
+		return -EINVAL;
+	}
+
+	if (!strcmp(touch_type, "primary"))
+		ret = PRIMARY_TOUCH_IDX;
+	else if (!strcmp(touch_type, "secondary"))
+		ret = SECONDARY_TOUCH_IDX;
+	else
+		ret = -EINVAL;
+
+	return ret;
 }
 
 static void st_ts_fill_qts_vendor_data(struct qts_vendor_data *qts_vendor_data,
@@ -4217,112 +4267,19 @@ static void st_ts_fill_qts_vendor_data(struct qts_vendor_data *qts_vendor_data,
 	qts_vendor_data->qts_vendor_ops.post_la_tui_disable = NULL;
 	qts_vendor_data->qts_vendor_ops.pre_le_tui_enable = NULL;
 	qts_vendor_data->qts_vendor_ops.post_le_tui_enable = st_ts_post_le_tui_enable;
-	qts_vendor_data->qts_vendor_ops.pre_le_tui_disable = NULL;
+	qts_vendor_data->qts_vendor_ops.pre_le_tui_disable = st_ts_pre_le_tui_disable;
 	qts_vendor_data->qts_vendor_ops.post_le_tui_disable = st_ts_post_le_tui_disable;
 	qts_vendor_data->qts_vendor_ops.irq_handler = st_irq_handler;
 }
 
-/**
-  * Probe function, called when the driver it is matched with a device with the
-  *same name compatible name
-  * This function allocate, initialize and define all the most important
-  *function and flow that are used by the driver to operate with the IC.
-  * It allocates device variables, initialize queues and schedule works,
-  *registers the IRQ handler, suspend/resume callbacks, registers the device to
-  *the linux input subsystem etc.
-  */
-static int st_fts_probe_entry(struct fts_ts_info *info)
+static int st_ts_set_input_property(struct fts_ts_info *info)
 {
 	int retval = 0;
-	struct device_node *dp = info->dev->of_node;
-	int skip_5_1 = 0;
-	struct qts_vendor_data qts_vendor_data;
-	bool qts_en = false;
 
-	logError(1, "%s %s: driver probe begin!\n", tag, __func__);
-
-	logError(1, "%s driver ver. %s\n", tag, FTS_TS_DRV_VERSION);
-
-	if (dp) {
-		info->board = devm_kzalloc(info->dev,
-					   sizeof(struct fts_hw_platform_data),
-					   GFP_KERNEL);
-		if (!info->board) {
-			logError(1, "%s ERROR:info.board kzalloc failed\n",
-				 tag);
-			retval = -ENODEV;
-			goto ProbeErrorExit_1;
-		}
-		parse_dt(info->dev, info->board);
-	}
-
-#ifdef CONFIG_ARCH_QTI_VM
-	goto skip_to_power_gpio_setup;
-#endif
-
-	logError(1, "%s SET Regulators:\n", tag);
-	retval = fts_get_reg(info, true);
-	if (retval) {
-		logError(1, "%s ERROR: %s: Failed to get regulators\n", tag,
-			 __func__);
-		goto ProbeErrorExit_1;
-	}
-
-	retval = fts_enable_reg(info, true);
-	if (retval) {
-		logError(1, "%s %s: ERROR Failed to enable regulators\n", tag,
-			 __func__);
-		goto ProbeErrorExit_2;
-	}
-
-	logError(1, "%s SET GPIOS:\n", tag);
-	retval = fts_set_gpio(info);
-	if (retval) {
-		logError(1, "%s %s: ERROR Failed to set up GPIO's\n", tag,
-			 __func__);
-		goto ProbeErrorExit_2;
-	}
-	info->irq = gpio_to_irq(info->board->irq_gpio);
-
-#ifdef CONFIG_ARCH_QTI_VM
-skip_to_power_gpio_setup:
-#endif
-	logError(1, "%s SET Event Handler:\n", tag);
-
-	info->wakesrc = wakeup_source_register(info->dev, "fts_tp");
-
-	qts_en = of_property_read_bool(dp, "st,qts_en");
-	if (qts_en) {
-		mutex_init(&info->tui_transition_lock);
-		st_ts_fill_qts_vendor_data(&qts_vendor_data, info);
-
-		retval = qts_client_register(qts_vendor_data);
-		if (retval) {
-			pr_err("qts client register failed, rc %d\n", retval);
-			goto ProbeErrorExit_4;
-		}
-		info->qts_en = qts_en;
-	}
-
-	info->event_wq = alloc_workqueue("fts-event-queue", WQ_UNBOUND |
-					 WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
-	if (!info->event_wq) {
-		logError(1, "%s ERROR: Cannot create work thread\n", tag);
-		retval = -ENOMEM;
-		goto ProbeErrorExit_4;
-	}
-
-	INIT_WORK(&info->work, fts_event_handler);
-
-	INIT_WORK(&info->resume_work, fts_resume_work);
-	INIT_WORK(&info->suspend_work, fts_suspend_work);
-
-	logError(1, "%s SET Input Device Property:\n", tag);
 	info->input_dev = input_allocate_device();
 	if (!info->input_dev) {
 		logError(1, "%s ERROR: No such input device defined!\n", tag);
-		retval = -ENODEV;
-		goto ProbeErrorExit_5;
+		return -ENODEV;
 	}
 	info->input_dev->dev.parent = info->dev;
 	info->input_dev->name = FTS_TS_DRV_NAME;
@@ -4346,15 +4303,14 @@ skip_to_power_gpio_setup:
 	/* input_mt_init_slots(info->input_dev, TOUCH_ID_MAX); */
 
 	input_set_abs_params(info->input_dev, ABS_MT_POSITION_X, X_AXIS_MIN,
-			     X_AXIS_MAX, 0, 0);
+				 X_AXIS_MAX, 0, 0);
 	input_set_abs_params(info->input_dev, ABS_MT_POSITION_Y, Y_AXIS_MIN,
-			     Y_AXIS_MAX, 0, 0);
+				 Y_AXIS_MAX, 0, 0);
 	input_set_abs_params(info->input_dev, ABS_MT_TOUCH_MAJOR, AREA_MIN,
-			     AREA_MAX, 0, 0);
+				 AREA_MAX, 0, 0);
 
 #ifdef GESTURE_MODE
 	input_set_capability(info->input_dev, EV_KEY, KEY_WAKEUP);
-
 	input_set_capability(info->input_dev, EV_KEY, KEY_M);
 	input_set_capability(info->input_dev, EV_KEY, KEY_O);
 	input_set_capability(info->input_dev, EV_KEY, KEY_E);
@@ -4391,27 +4347,141 @@ skip_to_power_gpio_setup:
 
 	mutex_init(&(info->input_report_mutex));
 
-
 #ifdef GESTURE_MODE
 	mutex_init(&gestureMask_mutex);
 #endif
 
-	mutex_init(&fts_int);
+	mutex_init(&info->fts_int);
 
 	/* register the multi-touch input device */
 	retval = input_register_device(info->input_dev);
 	if (retval) {
 		logError(1, "%s ERROR: No such input device\n", tag);
-		goto ProbeErrorExit_5_1;
+		input_free_device(info->input_dev);
+		return retval;
 	}
 
-	skip_5_1 = 1;
+	return 0;
+}
+
+static int st_ts_set_regulators_gpio(struct fts_ts_info *info)
+{
+	int retval = 0;
+
+	logError(1, "%s SET Regulators:\n", tag);
+	retval = fts_get_reg(info, true);
+	if (retval) {
+		logError(1, "%s ERROR: %s: Failed to get regulators\n", tag,
+			 __func__);
+		return retval;
+	}
+
+	retval = fts_enable_reg(info, true);
+	if (retval) {
+		logError(1, "%s %s: ERROR Failed to enable regulators\n", tag,
+			 __func__);
+		return retval;
+	}
+
+	logError(1, "%s SET GPIOS:\n", tag);
+	retval = fts_set_gpio(info);
+	if (retval) {
+		logError(1, "%s %s: ERROR Failed to set up GPIO's\n", tag,
+			 __func__);
+		return retval;
+	}
+	info->irq = gpio_to_irq(info->board->irq_gpio);
+
+	return 0;
+}
+
+/**
+ * Probe function, called when the driver it is matched with a device with the
+ *same name compatible name
+ * This function allocate, initialize and define all the most important
+ *function and flow that are used by the driver to operate with the IC.
+ * It allocates device variables, initialize queues and schedule works,
+ *registers the IRQ handler, suspend/resume callbacks, registers the device to
+ *the linux input subsystem etc.
+ */
+static int st_fts_probe_entry(struct fts_ts_info *info)
+{
+	int retval = 0;
+	struct device_node *dp = info->dev->of_node;
+	struct qts_vendor_data qts_vendor_data;
+	bool qts_en = false;
+
+	logError(1, "%s %s: driver probe begin!\n", tag, __func__);
+
+	logError(1, "%s driver ver. %s\n", tag, FTS_TS_DRV_VERSION);
+
+	if (dp) {
+		info->board = devm_kzalloc(info->dev,
+					   sizeof(struct fts_hw_platform_data),
+					   GFP_KERNEL);
+		if (!info->board) {
+			logError(1, "%s ERROR:info.board kzalloc failed\n",
+				 tag);
+			retval = -ENODEV;
+			goto ProbeErrorExit_1;
+		}
+		parse_dt(info->dev, info->board);
+	}
+
+#ifdef CONFIG_ARCH_QTI_VM
+	goto skip_to_power_gpio_setup;
+#endif
+
+	retval = st_ts_set_regulators_gpio(info);
+	if (retval)
+		goto ProbeErrorExit_2;
+
+#ifdef CONFIG_ARCH_QTI_VM
+skip_to_power_gpio_setup:
+#endif
+	logError(1, "%s SET Event Handler:\n", tag);
+
+	info->wakesrc = wakeup_source_register(info->dev, "fts_tp");
+
+	qts_en = of_property_read_bool(dp, "st,qts_en");
+	if (qts_en) {
+		mutex_init(&info->tui_transition_lock);
+		st_ts_fill_qts_vendor_data(&qts_vendor_data, info);
+
+		retval = qts_client_register(qts_vendor_data);
+		if (retval) {
+			pr_err("qts client register failed, rc %d\n", retval);
+			goto ProbeErrorExit_4;
+		}
+		info->qts_en = qts_en;
+	}
+
+	info->event_wq = alloc_workqueue("fts-event-queue", WQ_UNBOUND |
+					 WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
+	if (!info->event_wq) {
+		logError(1, "%s ERROR: Cannot create work thread\n", tag);
+		retval = -ENOMEM;
+		goto ProbeErrorExit_4;
+	}
+
+	INIT_WORK(&info->work, fts_event_handler);
+
+	INIT_WORK(&info->resume_work, fts_resume_work);
+	INIT_WORK(&info->suspend_work, fts_suspend_work);
+
+	logError(1, "%s SET Input Device Property:\n", tag);
+	retval = st_ts_set_input_property(info);
+	if (retval) {
+		logError(1, "%s %s: ERROR Failed to set up Input Device\n", tag,
+			 __func__);
+		goto ProbeErrorExit_5;
+	}
+
 	/* track slots */
 	info->touch_id = 0;
 #ifdef STYLUS_MODE
 	info->stylus_id = 0;
 #endif
-
 
 	/* init feature switches (by default all the features are disable,
 	  * if one feature want to be enabled from the start,
@@ -4421,8 +4491,10 @@ skip_to_power_gpio_setup:
 	info->charger_enabled = 0;
 	info->cover_enabled = 0;
 	info->grip_enabled = 0;
-
 	info->resume_bit = 1;
+
+	/* get touch type */
+	info->is_primary = (fts_get_touch_type(dp) == PRIMARY_TOUCH_IDX) ? true : false;
 
 #if defined(CONFIG_FB)
 	info->fb_notifier = fts_noti_block;
@@ -4434,7 +4506,7 @@ skip_to_power_gpio_setup:
 #ifdef CONFIG_ARCH_QTI_VM
 	goto skip_to_fw_update;
 #endif
-	fts_system_reset();
+	fts_system_reset(info);
 
 	/* init hardware device */
 	logError(1, "%s Device Initialization:\n", tag);
@@ -4491,10 +4563,6 @@ skip_to_fw_update:
 
 ProbeErrorExit_6:
 	input_unregister_device(info->input_dev);
-
-ProbeErrorExit_5_1:
-	if (skip_5_1 != 1)
-		input_free_device(info->input_dev);
 
 ProbeErrorExit_5:
 	destroy_workqueue(info->event_wq);
@@ -4558,6 +4626,15 @@ static int st_fts_i2c_probe(struct i2c_client *client)
 	info->i2c_client = client;
 	info->dev = &client->dev;
 	info->bus_type = BUS_I2C;
+	info->reset_gpio = GPIO_NOT_DEFINED;	/* /< gpio number of the rest
+						 * pin, the value is
+						 *  GPIO_NOT_DEFINED if the
+						 * reset pin is not connected
+						 */
+	info->disable_irq_count = 1;	/* /< count the number of call to
+					 * disable_irq, start with 1 because at
+					 * the boot IRQ are already disabled
+					 */
 	i2c_set_clientdata(client, info);
 
 	ret = st_fts_probe_entry(info);
@@ -4680,6 +4757,9 @@ static void st_fts_spi_remove(struct spi_device *spi)
 static struct of_device_id fts_of_match_table[] = {
 	{
 		.compatible = "st,fts",
+	},
+	{
+		.compatible = "st,fts2",
 	},
 	{},
 };

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2010 - 2018 Novatek, Inc.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * $Revision: 47247 $
  * $Date: 2019-07-10 10:41:36 +0800 (Wed, 10 Jul 2019) $
@@ -971,7 +972,7 @@ int32_t nvt_check_flash_end_flag(void)
 	}
 
 	//buf[3:5] => NVT End Flag
-	strlcpy(nvt_end_flag, &buf[3], sizeof(nvt_end_flag));
+	strscpy(nvt_end_flag, &buf[3], sizeof(nvt_end_flag));
 	NVT_LOG("nvt_end_flag=%s (%02X %02X %02X)\n", nvt_end_flag, buf[3], buf[4], buf[5]);
 
 	if ((memcmp(nvt_end_flag, "NVT", NVT_FLASH_END_FLAG_LEN) == 0) ||

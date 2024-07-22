@@ -2,6 +2,8 @@
 /*
  * Copyright (C) 2016-2019, STMicroelectronics Limited.
  * Authors: AMG(Analog Mems Group) <marco.cali@st.com>
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -232,8 +234,8 @@ typedef struct {
 /* #define logError(_l, _msg, ...) pr_err(_msg, ##__VA_ARGS__) */
 void logError(int force, const char *msg, ...);
 int isI2cError(int error);
-int dumpErrorInfo(u8 *outBuf, int size);
-int errorHandler(u8 *event, int size);
+int dumpErrorInfo(struct fts_ts_info *info, u8 *outBuf, int size);
+int errorHandler(struct fts_ts_info *info, u8 *event, int size);
 int addErrorIntoList(u8 *event, int size);
 int getErrorListCount(void);
 int resetErrorList(void);

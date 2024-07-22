@@ -13,6 +13,7 @@
  * TC3XXX
  *
  * Copyright (C) 2015-2020 Parade Technologies
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -211,7 +212,7 @@ void pt_pr_buf(struct device *dev, u8 debug_level, u8 *buf,
 
 		/* Ensure pr_buf_index stays within the 1018 size */
 		pr_buf_index += scnprintf(pr_buf, PT_MAX_PR_BUF_SIZE, "%s [0..%d]: ",
-			data_name);
+			data_name, buf_len);
 		for (i = 0; i < buf_len && i < max_size; i++)
 			pr_buf_index += scnprintf(pr_buf + pr_buf_index,
 				PT_MAX_PR_BUF_SIZE, "%02X ", buf[i]);
@@ -9233,7 +9234,7 @@ int pt_pip2_exit_bl_(struct pt_core_data *cd, u8 *status_str, int buf_size)
 				rc = _pt_request_wait_for_enum_state(cd->dev,
 					4000, STARTUP_STATUS_FW_RESET_SENTINEL);
 				if (rc && load_status_str) {
-					strlcpy(status_str, "No FW sentinel after BL",
+					strscpy(status_str, "No FW sentinel after BL",
 						sizeof(*status_str)*PT_STATUS_STR_LEN);
 					goto exit;
 				}
@@ -9262,7 +9263,7 @@ int pt_pip2_exit_bl_(struct pt_core_data *cd, u8 *status_str, int buf_size)
 					cd->startup_status);
 				if (load_status_str && !(cd->startup_status &
 				    STARTUP_STATUS_FW_OUT_OF_BOOT)) {
-					strlcpy(status_str, "FW Stuck in Boot mode",
+					strscpy(status_str, "FW Stuck in Boot mode",
 						sizeof(*status_str)*PT_STATUS_STR_LEN);
 					goto exit;
 				}
@@ -9280,13 +9281,13 @@ int pt_pip2_exit_bl_(struct pt_core_data *cd, u8 *status_str, int buf_size)
 		}
 		if (load_status_str) {
 			if (rc == PIP2_RSP_ERR_INVALID_IMAGE)
-				strlcpy(status_str, "Failed - Invalid image in FLASH",
+				strscpy(status_str, "Failed - Invalid image in FLASH",
 					sizeof(*status_str)*PT_STATUS_STR_LEN);
 			else if (!rc)
-				strlcpy(status_str, "Entered APP from BL mode",
+				strscpy(status_str, "Entered APP from BL mode",
 					sizeof(*status_str)*PT_STATUS_STR_LEN);
 			else
-				strlcpy(status_str, "Failed to enter APP from BL mode",
+				strscpy(status_str, "Failed to enter APP from BL mode",
 					sizeof(*status_str)*PT_STATUS_STR_LEN);
 		}
 	} else if (mode == PT_MODE_OPERATIONAL) {
@@ -9296,10 +9297,10 @@ int pt_pip2_exit_bl_(struct pt_core_data *cd, u8 *status_str, int buf_size)
 		rc = pt_poll_for_fw_exit_boot_mode(cd, 1500, &wait_time);
 		if (load_status_str) {
 			if (!rc)
-				strlcpy(status_str, "Already in APP mode",
+				strscpy(status_str, "Already in APP mode",
 					sizeof(*status_str)*PT_STATUS_STR_LEN);
 			else
-				strlcpy(status_str, "Already in APP mode - FW stuck in Boot mode",
+				strscpy(status_str, "Already in APP mode - FW stuck in Boot mode",
 					sizeof(*status_str)*PT_STATUS_STR_LEN);
 		}
 	} else if (rc || mode == PT_MODE_UNKNOWN) {
@@ -9307,7 +9308,7 @@ int pt_pip2_exit_bl_(struct pt_core_data *cd, u8 *status_str, int buf_size)
 		cd->mode = mode;
 		mutex_unlock(&cd->system_lock);
 		if (load_status_str)
-			strlcpy(status_str, "Failed to determine active mode",
+			strscpy(status_str, "Failed to determine active mode",
 				sizeof(*status_str)*PT_STATUS_STR_LEN);
 	}
 
@@ -9630,7 +9631,7 @@ static int pt_core_easywake_off_(struct pt_core_data *cd)
 			rc = pt_core_wake_device_from_easy_wake_(cd);
 		if (rc < 0)
 			pt_debug(cd->dev, DL_ERROR,
-				"%s - %d failed %d\n", __func__, rc);
+				"%s: failed rc:%d\n", __func__, rc);
 	}
 
 	mutex_lock(&cd->system_lock);
@@ -11569,7 +11570,9 @@ int _pt_read_us_file(struct device *dev, u8 *file_path, u8 *buf, int *size)
 	struct inode *inode = NULL;
 	unsigned int file_len = 0;
 	unsigned int read_len = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
 	mm_segment_t oldfs;
+#endif
 	int rc = 0;
 
 	if (file_path == NULL || buf == NULL) {
@@ -11578,7 +11581,9 @@ int _pt_read_us_file(struct device *dev, u8 *file_path, u8 *buf, int *size)
 	}
 	pt_debug(dev, DL_WARN, "%s: path = %s\n", __func__, file_path);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
 	oldfs = force_uaccess_begin();
+#endif
 	filp = filp_open_block(file_path, O_RDONLY, 0400);
 
 	if (IS_ERR(filp)) {
@@ -11636,7 +11641,9 @@ exit:
 	if (filp_close(filp, NULL) != 0)
 		pt_debug(dev, DL_ERROR, "%s: file close error.\n", __func__);
 err:
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
 	force_uaccess_end(oldfs);
+#endif
 	return rc;
 
 }
@@ -13889,7 +13896,7 @@ static ssize_t pt_pip2_cmd_rsp_show(struct device *dev,
 			data_len - PIP1_RESP_COMMAND_ID_OFFSET);
 	} else {
 		index += scnprintf(buf + index, PT_MAX_PRBUF_SIZE - index,
-			"\n(%zd bytes)\n", 0);
+			"\n(%d bytes)\n", 0);
 	}
 
 error:
@@ -14403,7 +14410,7 @@ static ssize_t pt_drv_debug_store(struct device *dev,
 				__func__, rc);
 		else
 			pt_debug(dev, DL_INFO,
-				"%s: CAL Cleared, Chip ID=0x%04X size=%d\n",
+				"%s: CAL Cleared, Chip ID=0x%04X size=%zu\n",
 				__func__, crc, size);
 		break;
 
@@ -15463,7 +15470,7 @@ static ssize_t pt_pip2_exit_bl_show(struct device *dev,
 	if (!rc && (!(cd->startup_status & STARTUP_STATUS_FW_OUT_OF_BOOT))) {
 		rc = pt_enum_with_dut(cd, false, &cd->startup_status);
 		if (!(cd->startup_status & STARTUP_STATUS_FW_OUT_OF_BOOT)) {
-			strlcpy(status_str,
+			strscpy(status_str,
 			       "Already in APP mode - FW stuck in Boot mode", sizeof(status_str));
 		}
 	}
@@ -16052,7 +16059,7 @@ static int pt_bist_bus_test(struct device *dev, u8 *net_toggled, u8 *err_str)
 		pt_debug(dev, DL_ERROR,
 			"%s: BUS Test - Failed to send VER cmd\n", __func__);
 		*net_toggled = 0;
-		strlcpy(err_str,
+		strscpy(err_str,
 			"- Write failed, bus open or shorted or DUT in reset", PT_ERR_STR_SIZE);
 		goto exit_enable_irq;
 	}
@@ -16064,7 +16071,7 @@ static int pt_bist_bus_test(struct device *dev, u8 *net_toggled, u8 *err_str)
 		*net_toggled = 0;
 		pt_debug(dev, DL_INFO, "%s: BUS Read Failed, 0 bytes read\n",
 			__func__);
-		strlcpy(err_str,
+		strscpy(err_str,
 			"- Bus open, shorted or DUT in reset", PT_ERR_STR_SIZE);
 		rc = -EIO;
 		goto exit_enable_irq;
@@ -16081,7 +16088,7 @@ static int pt_bist_bus_test(struct device *dev, u8 *net_toggled, u8 *err_str)
 				pt_debug(dev, DL_INFO,
 					"%s: BUS Read Failed, %d bytes read\n",
 					__func__, bytes_read);
-				strlcpy(err_str,
+				strscpy(err_str,
 					"- Bus open, shorted or DUT in reset", PT_ERR_STR_SIZE);
 			}
 		}
@@ -16183,7 +16190,7 @@ static int pt_bist_irq_test(struct device *dev,
 		if (rc) {
 			pt_debug(dev, DL_ERROR,
 				"%s Failed to enter BL\n", __func__);
-			strlcpy(err_str,
+			strscpy(err_str,
 				"- likely shorted to GND or FW holding it.", PT_ERR_STR_SIZE);
 			*irq_toggled = 0;
 			goto exit;
@@ -16204,7 +16211,7 @@ static int pt_bist_irq_test(struct device *dev,
 			 * error string, slim chance but the XRES test below may
 			 * show the IRQ is actually working.
 			 */
-			strlcpy(err_str, "- likely shorted to GND.", PT_ERR_STR_SIZE);
+			strscpy(err_str, "- likely shorted to GND.", PT_ERR_STR_SIZE);
 			pt_debug(dev, DL_ERROR,
 				"%s: %s, count=%d bytes_read=%d\n",
 				__func__, err_str, count, bytes_read);
@@ -16218,7 +16225,7 @@ static int pt_bist_irq_test(struct device *dev,
 		}
 	}
 	if (pt_check_irq_asserted(cd)) {
-		strlcpy(err_str, "- likely shorted to GND", PT_ERR_STR_SIZE);
+		strscpy(err_str, "- likely shorted to GND", PT_ERR_STR_SIZE);
 		rc = -EIO;
 		*irq_toggled = 0;
 		goto exit;
@@ -16238,7 +16245,7 @@ static int pt_bist_irq_test(struct device *dev,
 			pt_debug(dev, DL_ERROR,
 				"%s Failed to enter BL\n", __func__);
 			*irq_toggled = 0;
-			strlcpy(err_str, "- likely open or shorted to VDDI.", PT_ERR_STR_SIZE);
+			strscpy(err_str, "- likely open or shorted to VDDI.", PT_ERR_STR_SIZE);
 			goto exit;
 		}
 		/*
@@ -16258,7 +16265,7 @@ static int pt_bist_irq_test(struct device *dev,
 			 * error string, slim chance but the XRES test below may
 			 * show the IRQ is actually working.
 			 */
-			strlcpy(err_str, "- likely open or shorted to VDDI.", PT_ERR_STR_SIZE);
+			strscpy(err_str, "- likely open or shorted to VDDI.", PT_ERR_STR_SIZE);
 			pt_debug(dev, DL_ERROR,
 				"%s: request_active_pip_prot failed\n",
 				__func__);
@@ -16328,7 +16335,7 @@ static int pt_bist_xres_test(struct device *dev,
 	pt_debug(dev, DL_DEBUG, "%s: Startup Status Reset\n", __func__);
 
 	if ((!pdata->core_pdata->rst_gpio) || (!pdata->core_pdata->xres)) {
-		strlcpy(err_str, "- Net not configured or available", PT_ERR_STR_SIZE);
+		strscpy(err_str, "- Net not configured or available", PT_ERR_STR_SIZE);
 		rc = -ENODEV;
 		goto exit;
 	}
@@ -16361,7 +16368,7 @@ static int pt_bist_xres_test(struct device *dev,
 		pt_debug(cd->dev, DL_ERROR,
 			"%s: TMO waiting for sentinel\n", __func__);
 		*xres_toggled = 0;
-		strlcpy(err_str, "- likely open. (No Reset Sentinel)", PT_ERR_STR_SIZE);
+		strscpy(err_str, "- likely open. (No Reset Sentinel)", PT_ERR_STR_SIZE);
 
 		/*
 		 * Possibly bad FW, Try entering BL and wait for reset sentinel.
@@ -16378,7 +16385,7 @@ static int pt_bist_xres_test(struct device *dev,
 			pt_debug(dev, DL_ERROR, "%s Failed to enter BL\n",
 				__func__);
 			*xres_toggled = 0;
-			strlcpy(err_str, "- likely open or shorted to VDDI.", PT_ERR_STR_SIZE);
+			strscpy(err_str, "- likely open or shorted to VDDI.", PT_ERR_STR_SIZE);
 			goto exit;
 		} else {
 			/* Wait for the BL sentinel */
@@ -16390,7 +16397,7 @@ static int pt_bist_xres_test(struct device *dev,
 					"%s: TMO waiting for BL sentinel\n",
 					__func__);
 				*xres_toggled = 0;
-				strlcpy(err_str,
+				strscpy(err_str,
 					"- likely open or shorted to VDDI.", PT_ERR_STR_SIZE);
 				rc = -ETIME;
 				goto exit;
@@ -16428,7 +16435,7 @@ static int pt_bist_xres_test(struct device *dev,
 		pt_debug(dev, DL_INFO, "%s: TP_XRES BIST soft reset rc=%d",
 			__func__, rc);
 		if (rc) {
-			strlcpy(err_str, "- likely open.", PT_ERR_STR_SIZE);
+			strscpy(err_str, "- likely open.", PT_ERR_STR_SIZE);
 			pt_debug(dev, DL_ERROR,
 				"%s: Hard reset failed, soft reset failed %s\n",
 				__func__, err_str);
@@ -16436,18 +16443,18 @@ static int pt_bist_xres_test(struct device *dev,
 		}
 		if (cd->startup_status & STARTUP_STATUS_BL_RESET_SENTINEL ||
 		    cd->startup_status & STARTUP_STATUS_FW_RESET_SENTINEL) {
-			strlcpy(err_str,
+			strscpy(err_str,
 				"- likely open or stuck high, soft reset OK", PT_ERR_STR_SIZE);
 			pt_debug(dev, DL_ERROR,
 				"%s: Hard reset failed, soft reset passed-%s\n",
 				__func__, err_str);
 		} else if (cd->startup_status == 0) {
-			strlcpy(err_str, "- likely stuck high.", PT_ERR_STR_SIZE);
+			strscpy(err_str, "- likely stuck high.", PT_ERR_STR_SIZE);
 			pt_debug(dev, DL_ERROR,
 				"%s: Hard reset failed, soft reset failed-%s\n",
 				__func__, err_str);
 		} else {
-			strlcpy(err_str, "- open or stuck.", PT_ERR_STR_SIZE);
+			strscpy(err_str, "- open or stuck.", PT_ERR_STR_SIZE);
 			pt_debug(dev, DL_ERROR,
 				"%s: Hard and Soft reset failed - %s\n",
 				__func__, err_str);
@@ -16505,7 +16512,7 @@ static int pt_bist_slave_irq_test(struct device *dev,
 	if (rc) {
 		pt_debug(cd->dev, DL_ERROR, "%s: Error entering BL rc=%d\n",
 			__func__, rc);
-		strlcpy(err_str, "- State could not be determined.", PT_ERR_STR_SIZE);
+		strscpy(err_str, "- State could not be determined.", PT_ERR_STR_SIZE);
 		goto exit;
 	}
 
@@ -16525,13 +16532,13 @@ static int pt_bist_slave_irq_test(struct device *dev,
 			detected = read_buf[PIP2_RESP_BODY_OFFSET + 2] &
 					SLAVE_DETECT_MASK;
 		} else {
-			strlcpy(err_str, "- State could not be determined", PT_ERR_STR_SIZE);
+			strscpy(err_str, "- State could not be determined", PT_ERR_STR_SIZE);
 			rc = -EPERM;
 		}
 	} else {
 		pt_debug(cd->dev, DL_ERROR, "%s: STATUS cmd failure\n",
 			__func__);
-		strlcpy(err_str, "- State could not be determined.", PT_ERR_STR_SIZE);
+		strscpy(err_str, "- State could not be determined.", PT_ERR_STR_SIZE);
 		goto exit;
 	}
 
@@ -16555,7 +16562,7 @@ static int pt_bist_slave_irq_test(struct device *dev,
 	} else {
 		pt_debug(cd->dev, DL_ERROR,
 			"%s: GET_LAST_ERRNO cmd failure\n", __func__);
-		strlcpy(err_str, "- stuck, likely shorted to GND.", PT_ERR_STR_SIZE);
+		strscpy(err_str, "- stuck, likely shorted to GND.", PT_ERR_STR_SIZE);
 	}
 
 exit:
@@ -16649,7 +16656,7 @@ static int pt_bist_slave_xres_test(struct device *dev,
 		 * error.
 		 */
 		if (!slave_detect)
-			strlcpy(err_str, "- likely open.", PT_ERR_STR_SIZE);
+			strscpy(err_str, "- likely open.", PT_ERR_STR_SIZE);
 		else
 			scnprintf(err_str, PT_ERR_STR_SIZE, "%s 0x%02X",
 				"- likely open or an IRQ issue. Boot Error:",
@@ -16701,7 +16708,7 @@ static int pt_bist_slave_bus_test(struct device *dev,
 	if (rc) {
 		pt_debug(cd->dev, DL_ERROR, "%s: Error entering BL rc=%d\n",
 			__func__, rc);
-		strlcpy(err_str, "- State could not be determined.", PT_ERR_STR_SIZE);
+		strscpy(err_str, "- State could not be determined.", PT_ERR_STR_SIZE);
 		goto exit;
 	}
 
@@ -16712,7 +16719,7 @@ static int pt_bist_slave_bus_test(struct device *dev,
 		bus_toggled = false;
 		pt_debug(dev, DL_ERROR,
 			"%s Failed to open bin file\n", __func__);
-		strlcpy(err_str, "- Bus open, shorted or DUT in reset", PT_ERR_STR_SIZE);
+		strscpy(err_str, "- Bus open, shorted or DUT in reset", PT_ERR_STR_SIZE);
 		goto exit;
 	} else {
 		bus_toggled = true;

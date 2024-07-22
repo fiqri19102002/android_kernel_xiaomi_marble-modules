@@ -6,6 +6,7 @@
  * redistributing this file, you may do so under either license.
  * Qualcomm Innovation Center, Inc. chooses to use it under GPLv2
  * Copyright (c) 2021  Raydium tech Ltd.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -54,6 +55,7 @@
 #include <linux/string.h>
 #include <linux/timer.h>
 #include <linux/fs.h>
+#include <linux/version.h>
 #include <asm/uaccess.h>
 
 #include "drv_interface.h"
@@ -98,16 +100,22 @@ static int self_test_all(void)
 int self_test_save_to_file(char *file_name, char *p_string, short len)
 {
 	struct file *filp = NULL;
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
 	mm_segment_t old_fs;
+#endif
 
 	filp = filp_open_block(file_name, O_RDWR | O_CREAT | O_APPEND, 0666);
 	if (IS_ERR(filp)) {
 		DEBUGOUT("can't open file:%s\n", RM_SELF_TEST_LOGFILE);
 		return 0;
 	}
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
 	old_fs = force_uaccess_begin();
+#endif
 	filp->f_op->write(filp, p_string, len, &filp->f_pos);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
 	force_uaccess_end(old_fs);
+#endif
 	filp_close(filp, NULL);
 	return 1;
 }

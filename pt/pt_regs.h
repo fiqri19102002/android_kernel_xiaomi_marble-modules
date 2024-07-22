@@ -13,6 +13,7 @@
  * TC3XXX
  *
  * Copyright (C) 2015-2020 Parade Technologies
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -90,6 +91,7 @@
 #include <linux/timex.h>
 #include <linux/rtc.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pinctrl/consumer.h>
 
 #define STATUS_SUCCESS   0
 #define STATUS_FAIL     -1

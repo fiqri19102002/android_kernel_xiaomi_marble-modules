@@ -13,6 +13,7 @@
  * TC3XXX
  *
  * Copyright (C) 2015-2020 Parade Technologies
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -816,7 +817,11 @@ static struct pt_core_platform_data *create_and_get_core_pdata(
 	}
 
 	/* Required fields */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0))
+	value = of_get_named_gpio(core_node, "parade,irq_gpio", 0);
+#else
 	value = of_get_named_gpio_flags(core_node, "parade,irq_gpio", 0, &pdata->irq_gpio_flags);
+#endif
 	pdata->irq_gpio = value;
 
 	rc = of_property_read_u32(core_node, "parade,hid_desc_register",
@@ -829,7 +834,11 @@ static struct pt_core_platform_data *create_and_get_core_pdata(
 	/* rst_gpio is optional since a platform may use
 	 * power cycling instead of using the XRES pin
 	 */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0))
+	value = of_get_named_gpio(core_node, "parade,rst_gpio", 0);
+#else
 	value = of_get_named_gpio_flags(core_node, "parade,rst_gpio", 0, &pdata->rst_gpio_flags);
+#endif
 	pdata->rst_gpio = value;
 
 	rc = of_property_read_u32(core_node, "parade,ddi_rst_gpio", &value);

@@ -2,6 +2,8 @@
 /*
  * Copyright (C) 2016-2019, STMicroelectronics Limited.
  * Authors: AMG(Analog Mems Group) <marco.cali@st.com>
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*
@@ -108,35 +110,44 @@ typedef struct {
 } TotMutualSenseData;
 
 /**
-  * Struct which contains the TOT SS Initialization data
-  */
+ * Struct which contains the TOT SS Initialization data
+ */
 typedef struct {
 	DataHeader header;	/* /< Header */
 
 	u16 *ix_fm;	/* /< pointer to an array of ushort which contains TOT
-			 * SS IX Force data */
+			 * SS IX Force data
+			 */
 	u16 *ix_sn;	/* /< pointer to an array of ushort which contains TOT
-			 * SS IX Sense data */
+			 * SS IX Sense data
+			 */
 	short *cx_fm;	/* /< pointer to an array of ushort which contains TOT
-			 * SS CX Force data (can be negative) */
+			 * SS CX Force data (can be negative)
+			 */
 	short *cx_sn;	/* /< pointer to an array of ushort which contains TOT
-			 * SS CX Sense data (can be negative) */
+			 * SS CX Sense data (can be negative)
+			 */
 } TotSelfSenseData;
 
 
 
-int requestCompensationData(u8 type);
-int readCompensationDataHeader(u8 type, DataHeader *header, u64 *address);
-int readMutualSenseGlobalData(u64 *address, MutualSenseData *global);
-int readMutualSenseNodeData(u64 address, MutualSenseData *node);
-int readMutualSenseCompensationData(u8 type, MutualSenseData *data);
-int readSelfSenseGlobalData(u64 *address, SelfSenseData *global);
-int readSelfSenseNodeData(u64 address, SelfSenseData *node);
-int readSelfSenseCompensationData(u8 type, SelfSenseData *data);
-int readToTMutualSenseGlobalData(u64 *address, TotMutualSenseData *global);
-int readToTMutualSenseNodeData(u64 address, TotMutualSenseData *node);
-int readTotMutualSenseCompensationData(u8 type, TotMutualSenseData *data);
-int readTotSelfSenseGlobalData(u64 *address, TotSelfSenseData *global);
-int readTotSelfSenseNodeData(u64 address, TotSelfSenseData *node);
-int readTotSelfSenseCompensationData(u8 type, TotSelfSenseData *data);
+int requestCompensationData(struct fts_ts_info *info, u8 type);
+int readCompensationDataHeader(struct fts_ts_info *info, u8 type, DataHeader *header,
+	u64 *address);
+int readMutualSenseGlobalData(struct fts_ts_info *info, u64 *address, MutualSenseData *global);
+int readMutualSenseNodeData(struct fts_ts_info *info, u64 address, MutualSenseData *node);
+int readMutualSenseCompensationData(struct fts_ts_info *info, u8 type, MutualSenseData *data);
+int readSelfSenseGlobalData(struct fts_ts_info *info, u64 *address, SelfSenseData *global);
+int readSelfSenseNodeData(struct fts_ts_info *info, u64 address, SelfSenseData *node);
+int readSelfSenseCompensationData(struct fts_ts_info *info, u8 type, SelfSenseData *data);
+int readToTMutualSenseGlobalData(struct fts_ts_info *info, u64 *address,
+	TotMutualSenseData *global);
+int readToTMutualSenseNodeData(struct fts_ts_info *info, u64 address, TotMutualSenseData *node);
+int readTotMutualSenseCompensationData(struct fts_ts_info *info, u8 type,
+	TotMutualSenseData *data);
+int readTotSelfSenseGlobalData(struct fts_ts_info *info, u64 *address,
+	TotSelfSenseData *global);
+int readTotSelfSenseNodeData(struct fts_ts_info *info, u64 address, TotSelfSenseData *node);
+int readTotSelfSenseCompensationData(struct fts_ts_info *info, u8 type,
+	TotSelfSenseData *data);
 #endif

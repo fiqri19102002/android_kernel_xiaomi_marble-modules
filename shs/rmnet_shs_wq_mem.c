@@ -636,7 +636,7 @@ DATARMNETf46265286b[idx].coal_tcp_bytes=priv->stats.coal.coal_tcp_bytes;
 DATARMNETf46265286b[idx].coal_udp=priv->stats.coal.coal_udp;DATARMNETf46265286b[
 idx].coal_udp_bytes=priv->stats.coal.coal_udp_bytes;DATARMNETf46265286b[idx].
 mux_id=priv->mux_id;DATARMNETf46265286b[idx].pb_marker_seq=port->stats.
-pb_marker_seq;strlcpy(DATARMNETf46265286b[idx].name,ep->ep->name,sizeof(
+pb_marker_seq;strscpy(DATARMNETf46265286b[idx].name,ep->ep->name,sizeof(
 DATARMNETf46265286b[idx].name));DATARMNETf46265286b[idx].DATARMNET870c3dafcb=
 priv->stats.coal.coal_pkts;DATARMNETf46265286b[idx].DATARMNET4eb77c78e6=ep->
 DATARMNET4eb77c78e6;DATARMNETf46265286b[idx].DATARMNET257fc4b2d4=ep->

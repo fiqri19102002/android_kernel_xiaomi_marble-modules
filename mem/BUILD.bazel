@@ -10,6 +10,9 @@ define_mem("sun", "perf")
 define_mem("parrot", "consolidate")
 define_mem("parrot", "perf")
 
+define_mem("monaco", "consolidate")
+define_mem("monaco", "perf")
+
 package(
 	default_visibility = [
 	"//visibility:public", ],

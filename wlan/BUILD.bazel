@@ -9,3 +9,6 @@ define_wlan("sun", "perf")
 
 define_wlan("parrot", "consolidate")
 define_wlan("parrot", "perf")
+
+define_wlan("monaco", "consolidate")
+define_wlan("monaco", "perf")

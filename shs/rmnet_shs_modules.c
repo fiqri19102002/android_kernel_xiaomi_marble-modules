@@ -199,11 +199,14 @@ DATARMNET1ad396a890,
 "\x4d\x61\x78\x20\x72\x6d\x6e\x65\x74\x20\x70\x72\x65\x2d\x62\x61\x63\x6b\x6c\x6f\x67"
 );unsigned int DATARMNET121c8bc82a __read_mostly=(0xd2d+202-0xdf7);module_param(
 DATARMNET121c8bc82a,uint,(0xdb7+6665-0x261c));MODULE_PARM_DESC(
-DATARMNET121c8bc82a,
+DATARMNET32fc6f2889,
 "\x72\x6d\x6e\x65\x74\x5f\x73\x68\x73\x5f\x72\x65\x73\x65\x72\x76\x65\x5f\x6d\x61\x73\x6b"
-);unsigned int DATARMNET756bdd424a __read_mostly;module_param(
-DATARMNET756bdd424a,uint,(0xdb7+6665-0x261c));MODULE_PARM_DESC(
-DATARMNET756bdd424a,
+);unsigned int DATARMNETf55430ea0a __read_mostly=(0xd2d+202-0xdf7);module_param(
+DATARMNETf55430ea0a,uint,(0xdb7+6665-0x261c));MODULE_PARM_DESC(
+DATARMNETf55430ea0a,
+"\x72\x6d\x6e\x65\x74\x5f\x73\x68\x73\x5f\x68\x61\x6c\x74\x5f\x6d\x61\x73\x6b");
+unsigned int DATARMNET756bdd424a __read_mostly;module_param(DATARMNET756bdd424a,
+uint,(0xdb7+6665-0x261c));MODULE_PARM_DESC(DATARMNET756bdd424a,
 "\x72\x6d\x6e\x65\x74\x5f\x73\x68\x73\x5f\x64\x65\x62\x75\x67");unsigned int 
 DATARMNET58b009b16b __read_mostly=(0xd26+209-0xdf6);module_param(
 DATARMNET58b009b16b,uint,(0xdb7+6665-0x261c));MODULE_PARM_DESC(

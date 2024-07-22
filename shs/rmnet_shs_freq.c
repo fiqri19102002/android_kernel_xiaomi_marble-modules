@@ -16,12 +16,13 @@
 #include "rmnet_shs.h"
 #include "rmnet_shs_freq.h"
 #include "rmnet_shs_modules.h"
+#include "rmnet_shs_config.h"
 #include <linux/cpufreq.h>
 #include <linux/cpu.h>
 #include <linux/pm_qos.h>
 #define DATARMNET81fe789d21 INT_MAX
 #define MIN_FREQ (0xd2d+202-0xdf7)
-#define DATARMNET59b491fbc9 500000
+#define DATARMNET59b491fbc9 DATARMNETecc0627c70.DATARMNETe306607c08
 #define DATARMNET03d51cb126 (0xd1f+216-0xdf5)
 struct cpu_freq{unsigned int DATARMNET103c8d34fe;unsigned int 
 DATARMNET1159aa2cb6;};unsigned int DATARMNET666c9ff35e __read_mostly=

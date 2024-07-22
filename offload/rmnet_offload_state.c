@@ -1,5 +1,5 @@
 /* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,16 +43,14 @@ ps_off_handler=DATARMNETb7e47d7254;if(qmi_rmnet_ps_ind_register(
 DATARMNETf0d9de7e2f,DATARMNETbc78d7fd3c)){DATARMNETb14e52a504=
 DATARMNET8e1c5c09f8;pr_warn(
 "\x25\x73\x28\x29\x3a\x20\x50\x53\x20\x43\x42\x20\x72\x65\x67\x69\x73\x74\x72\x61\x74\x69\x6f\x6e\x20\x66\x61\x69\x6c\x65\x64" "\n"
-,__func__);}if(DATARMNETf0d9de7e2f->data_format&
-RMNET_INGRESS_FORMAT_DL_MARKER_V2){DATARMNET87b015f76f=&DATARMNETe05748b000->
-DATARMNETa9f2b2f677;DATARMNET8633ae8f1e=&DATARMNET87b015f76f->
-DATARMNET8633ae8f1e;DATARMNET8633ae8f1e->priority=DATARMNET1f03ff7987;
-DATARMNET8633ae8f1e->dl_hdr_handler_v2=DATARMNET95e1703026;DATARMNET8633ae8f1e->
-dl_trl_handler_v2=DATARMNETc9dd320f49;if(rmnet_map_dl_ind_register(
-DATARMNETf0d9de7e2f,DATARMNET8633ae8f1e)){DATARMNETb14e52a504=
-DATARMNET8e1c5c09f8;pr_warn(
+,__func__);}DATARMNET87b015f76f=&DATARMNETe05748b000->DATARMNETa9f2b2f677;
+DATARMNET8633ae8f1e=&DATARMNET87b015f76f->DATARMNET8633ae8f1e;
+DATARMNET8633ae8f1e->priority=DATARMNET1f03ff7987;DATARMNET8633ae8f1e->
+dl_hdr_handler_v2=DATARMNET95e1703026;DATARMNET8633ae8f1e->dl_trl_handler_v2=
+DATARMNETc9dd320f49;if(rmnet_map_dl_ind_register(DATARMNETf0d9de7e2f,
+DATARMNET8633ae8f1e)){DATARMNETb14e52a504=DATARMNET8e1c5c09f8;pr_warn(
 "\x25\x73\x28\x29\x3a\x20\x44\x4c\x20\x43\x42\x20\x72\x65\x67\x69\x73\x74\x72\x61\x74\x61\x74\x69\x6f\x6e\x20\x66\x61\x69\x6c\x65\x64" "\n"
-,__func__);}else{DATARMNET87b015f76f->DATARMNETc2832b8f85=true;}}
+,__func__);}else{DATARMNET87b015f76f->DATARMNETc2832b8f85=true;}
 DATARMNETd4230b6bfe();return DATARMNETb14e52a504;}static int DATARMNET9f53d54812
 (struct rmnet_port*DATARMNETf0d9de7e2f){int DATARMNETb14e52a504;
 DATARMNETe05748b000=kzalloc(sizeof(*DATARMNETe05748b000),GFP_KERNEL);if(!

@@ -1,5 +1,5 @@
 /* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,11 +23,12 @@
 #include "rmnet_offload_state.h"
 #include "rmnet_offload_engine.h"
 #include "rmnet_offload_stats.h"
-static char*verinfo[]={"\x35\x38\x61\x61\x39\x62\x65\x65",
-"\x63\x38\x61\x63\x61\x66\x38\x35","\x65\x32\x31\x38\x66\x34\x35\x31",
-"\x32\x61\x34\x34\x66\x36\x62\x65","\x37\x34\x31\x35\x39\x32\x31\x63",
-"\x34\x31\x32\x39\x36\x62\x30\x39"};module_param_array(verinfo,charp,NULL,
-(0xcb7+5769-0x221c));MODULE_PARM_DESC(verinfo,
+static char*verinfo[]={"\x33\x36\x66\x30\x64\x38\x62\x31",
+"\x35\x38\x61\x61\x39\x62\x65\x65","\x63\x38\x61\x63\x61\x66\x38\x35",
+"\x65\x32\x31\x38\x66\x34\x35\x31","\x32\x61\x34\x34\x66\x36\x62\x65",
+"\x37\x34\x31\x35\x39\x32\x31\x63","\x34\x31\x32\x39\x36\x62\x30\x39"};
+module_param_array(verinfo,charp,NULL,(0xcb7+5769-0x221c));MODULE_PARM_DESC(
+verinfo,
 "\x56\x65\x72\x73\x69\x6f\x6e\x20\x6f\x66\x20\x74\x68\x65\x20\x64\x72\x69\x76\x65\x72"
 );static DEFINE_SPINLOCK(DATARMNET0b5e447f18);static u32 DATARMNETcb7325e02d(
 struct DATARMNETd812bcdbb5*DATARMNET458b70e7e5){struct DATARMNET4287f07234*

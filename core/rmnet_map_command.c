@@ -1,5 +1,5 @@
 /* Copyright (c) 2013-2019, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -345,41 +345,30 @@ void rmnet_map_cmd_init(struct rmnet_port *port)
 	INIT_LIST_HEAD(&port->pb_list);
 }
 
+
 int rmnet_map_dl_ind_register(struct rmnet_port *port,
-			      struct rmnet_map_dl_ind *dl_ind)
+			       struct rmnet_map_dl_ind *new_node)
 {
-	struct rmnet_map_dl_ind *dl_ind_iterator;
-	bool empty_ind_list = true;
+	struct rmnet_map_dl_ind *curr;
+	bool inserted = false;
 
-	if (!port || !dl_ind || !dl_ind->dl_hdr_handler_v2 ||
-	    !dl_ind->dl_trl_handler_v2)
+	if (!port || !new_node || !new_node->dl_hdr_handler_v2 ||
+	    !new_node->dl_trl_handler_v2) {
 		return -EINVAL;
-
-	list_for_each_entry_rcu(dl_ind_iterator, &port->dl_list, list) {
-		empty_ind_list = false;
-		if (dl_ind_iterator->priority < dl_ind->priority) {
-			if (dl_ind_iterator->list.next) {
-				if (dl_ind->priority
-				    < list_entry_rcu(dl_ind_iterator->list.next,
-				    typeof(*dl_ind_iterator), list)->priority) {
-					list_add_rcu(&dl_ind->list,
-						     &dl_ind_iterator->list);
-					break;
-				}
-			} else {
-				list_add_rcu(&dl_ind->list,
-					     &dl_ind_iterator->list);
-				break;
-			}
-		} else {
-			list_add_tail_rcu(&dl_ind->list,
-					  &dl_ind_iterator->list);
-			break;
+	}
+	/* Traverse until we find entry that is larger than newnode priority
+	 * Prepend to that 1st entry that is larger to maintain sorted order
+	 */
+	list_for_each_entry_rcu(curr, &port->dl_list, list) {
+		if (new_node->priority <= curr->priority) {
+			list_add_tail_rcu(&new_node->list, &curr->list);
+			inserted = true;
 		}
 	}
 
-	if (empty_ind_list)
-		list_add_rcu(&dl_ind->list, &port->dl_list);
+	/* If no larger priority found append to end of list */
+	if (!inserted)
+		list_add_tail_rcu(&new_node->list, &port->dl_list);
 
 	return 0;
 }
@@ -406,39 +395,27 @@ done:
 EXPORT_SYMBOL(rmnet_map_dl_ind_deregister);
 
 int rmnet_map_pb_ind_register(struct rmnet_port *port,
-			      struct rmnet_map_pb_ind *pb_ind)
+			      struct rmnet_map_pb_ind *new_node)
 {
-	struct rmnet_map_pb_ind *pb_ind_iterator;
-	bool empty_ind_list = true;
+	struct rmnet_map_pb_ind *curr;
+	bool inserted = false;
 
-	if (!port || !pb_ind || !pb_ind->pb_ind_handler)
+	if (!port || !new_node || !new_node->pb_ind_handler)
 		return -EINVAL;
 
-	list_for_each_entry_rcu(pb_ind_iterator, &port->pb_list, list) {
-		empty_ind_list = false;
-		if (pb_ind_iterator->priority < pb_ind->priority) {
-			if (pb_ind_iterator->list.next) {
-				if (pb_ind->priority
-				    < list_entry_rcu(pb_ind_iterator->list.next,
-				    typeof(*pb_ind_iterator), list)->priority) {
-					list_add_rcu(&pb_ind->list,
-						     &pb_ind_iterator->list);
-					break;
-				}
-			} else {
-				list_add_rcu(&pb_ind->list,
-					     &pb_ind_iterator->list);
-				break;
-			}
-		} else {
-			list_add_tail_rcu(&pb_ind->list,
-					  &pb_ind_iterator->list);
-			break;
+	/* Traverse until we find entry that is larger than newnode priority
+	 * Prepend to that 1st entry that is larger to maintain sorted order
+	 */
+	 list_for_each_entry_rcu(curr, &port->pb_list, list) {
+		if (new_node->priority <= curr->priority) {
+			list_add_tail_rcu(&new_node->list, &curr->list);
+			inserted = true;
 		}
 	}
 
-	if (empty_ind_list)
-		list_add_rcu(&pb_ind->list, &port->pb_list);
+	/* If no larger priority found append to end of list */
+	if (!inserted)
+		list_add_tail_rcu(&new_node->list, &port->pb_list);
 
 	return 0;
 }

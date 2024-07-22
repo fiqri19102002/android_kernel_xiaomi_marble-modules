@@ -10,6 +10,9 @@ define_modules("sun", "perf")
 define_modules("parrot", "consolidate")
 define_modules("parrot", "perf")
 
+define_modules("monaco", "consolidate")
+define_modules("monaco", "perf")
+
 package(
     default_visibility = [
         "//visibility:public",

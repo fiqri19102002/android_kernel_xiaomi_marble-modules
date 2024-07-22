@@ -13,6 +13,7 @@ ifeq ($(TARGET_DATARMNET_ENABLE), true)
 	DATA_DLKM_BOARD_PLATFORMS_LIST := pineapple
 	DATA_DLKM_BOARD_PLATFORMS_LIST += sun
 	DATA_DLKM_BOARD_PLATFORMS_LIST += parrot
+	DATA_DLKM_BOARD_PLATFORMS_LIST += monaco
 
 	ifneq ($(TARGET_BOARD_AUTO),true)
 		ifeq ($(call is-board-platform-in-list,$(DATA_DLKM_BOARD_PLATFORMS_LIST)),true)

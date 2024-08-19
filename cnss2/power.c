@@ -1416,17 +1416,27 @@ static int
 cnss_mbox_send_msg(struct cnss_plat_data *plat_priv, char *mbox_msg)
 {
 	struct qmp_pkt pkt;
+	int mbox_msg_size;
 	int ret = 0;
 
 	if (!plat_priv->mbox_chan)
 		return -ENODEV;
 
+	mbox_msg_size = strlen(mbox_msg) + 1;
+
+	if (mbox_msg_size > CNSS_MBOX_MSG_MAX_LEN) {
+		cnss_pr_err("message length greater than max length\n");
+		return -EINVAL;
+	}
+
 	cnss_pr_dbg("Sending AOP Mbox msg: %s\n", mbox_msg);
-	pkt.size = CNSS_MBOX_MSG_MAX_LEN;
+	pkt.size = mbox_msg_size;
 	pkt.data = mbox_msg;
 	ret = mbox_send_message(plat_priv->mbox_chan, &pkt);
 	if (ret < 0)
 		cnss_pr_err("Failed to send AOP mbox msg: %s\n", mbox_msg);
+	else
+		ret = 0;
 
 	return ret;
 }
@@ -1720,7 +1730,7 @@ int cnss_aop_ol_cpr_cfg_setup(struct cnss_plat_data *plat_priv,
 			u32 wake_volt = 0, sleep_volt = 0;
 
 			if (plat_vreg_param[j].vreg[0] == '\0')
-				strlcpy(plat_vreg_param[j].vreg, vreg,
+				strscpy(plat_vreg_param[j].vreg, vreg,
 					sizeof(plat_vreg_param[j].vreg));
 			else if (!strnstr(plat_vreg_param[j].vreg, vreg,
 					  strlen(plat_vreg_param[j].vreg)))

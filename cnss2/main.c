@@ -10,6 +10,7 @@
 #include <linux/jiffies.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
 #include <linux/pm_wakeup.h>
@@ -74,6 +75,7 @@
 #define CNSS_MHI_M2_TIMEOUT_DEFAULT	25
 #define CNSS_QMI_TIMEOUT_DEFAULT	10000
 #endif
+#define CNSS_REQ_FW_TIMEOUT_DEFAULT	20000
 #define CNSS_BDF_TYPE_DEFAULT		CNSS_BDF_ELF
 #define CNSS_TIME_SYNC_PERIOD_DEFAULT	900000
 #define CNSS_MIN_TIME_SYNC_PERIOD	2000
@@ -84,6 +86,7 @@
 #define CNSS_CAL_START_PROBE_WAIT_RETRY_MAX 100
 #define CNSS_CAL_START_PROBE_WAIT_MS	500
 #define CNSS_TIME_SYNC_PERIOD_INVALID	0xFFFFFFFF
+#define CPUMASK_ARRAY_SIZE		2
 
 enum cnss_cal_db_op {
 	CNSS_CAL_DB_UPLOAD,
@@ -535,7 +538,7 @@ size_t cnss_get_platform_name(struct cnss_plat_data *plat_priv,
 
 			model = of_get_property(root, "model", NULL);
 			if (model) {
-				model_len = strlcpy(buf, model, buf_len);
+				model_len = strscpy(buf, model, buf_len);
 				cnss_pr_dbg("Platform name: %s (%zu)\n",
 					    buf, model_len);
 
@@ -673,6 +676,60 @@ bool cnss_audio_is_direct_link_supported(struct device *dev)
 }
 EXPORT_SYMBOL(cnss_audio_is_direct_link_supported);
 
+/**
+ * cnss_ipa_wlan_shared_smmu_supported: Check whether shared SMMU context bank
+ *                                      can be used between IPA and WLAN.
+ * @dev: Device
+ *
+ * Return: TRUE if supported, FALSE on failure or if not supported
+ */
+bool cnss_ipa_wlan_shared_smmu_supported(struct device *dev)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	struct device_node *ipa_wlan_smmu_node;
+	struct device_node *cnss_iommu_group_node;
+	struct device_node *ipa_iommu_group_node;
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv not available for IPA Shared CB cap\n");
+		return false;
+	}
+
+	ipa_wlan_smmu_node = of_find_compatible_node(NULL, NULL,
+						     "qcom,ipa-smmu-wlan-cb");
+	if (!ipa_wlan_smmu_node) {
+		cnss_pr_err("ipa-smmu-wlan-cb not enabled");
+		return false;
+	}
+
+	ipa_iommu_group_node = of_parse_phandle(ipa_wlan_smmu_node,
+						"qcom,iommu-group", 0);
+	of_node_put(ipa_wlan_smmu_node);
+
+	if (!ipa_iommu_group_node) {
+		cnss_pr_err("Unable to get ipa iommu group phandle");
+		return false;
+	}
+	of_node_put(ipa_iommu_group_node);
+
+	cnss_iommu_group_node = of_parse_phandle(dev->of_node,
+						 "qcom,iommu-group", 0);
+	if (!cnss_iommu_group_node) {
+		cnss_pr_err("Unable to get cnss iommu group phandle");
+		return false;
+	}
+	of_node_put(cnss_iommu_group_node);
+
+	if (cnss_iommu_group_node == ipa_iommu_group_node) {
+		plat_priv->ipa_shared_cb_enable = true;
+		cnss_pr_info("CNSS and IPA share IOMMU group");
+	} else {
+		cnss_pr_info("CNSS and IPA do not share IOMMU group");
+	}
+
+	return plat_priv->ipa_shared_cb_enable;
+}
+EXPORT_SYMBOL(cnss_ipa_wlan_shared_smmu_supported);
 
 void cnss_request_pm_qos(struct device *dev, u32 qos_val)
 {
@@ -1812,6 +1869,8 @@ static irqreturn_t cnss_dev_sol_handler(int irq, void *data)
 		cnss_pr_dbg("Ignore Dev SOL during device power off");
 		return IRQ_HANDLED;
 	}
+	if (cnss_get_dev_sol_value(plat_priv) == 1)
+		return IRQ_HANDLED;
 
 	sol_gpio->dev_sol_counter++;
 	cnss_pr_dbg("WLAN device SOL IRQ (%u) is asserted #%u, dev_sol_val: %d\n",
@@ -2197,7 +2256,12 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 		}
 		break;
 	case CNSS_REASON_RDDM:
-		cnss_bus_collect_dump_info(plat_priv, false);
+		ret = cnss_bus_collect_dump_info(plat_priv, false);
+		/* if EAGAIN is recieved, means we have initiated another rddm
+		 *due to stuck issue and need to return from current one
+		 */
+		if (ret == -EAGAIN)
+			return 0;
 		break;
 	case CNSS_REASON_DEFAULT:
 	case CNSS_REASON_TIMEOUT:
@@ -3606,7 +3670,7 @@ static int cnss_init_dump_entry(struct cnss_plat_data *plat_priv)
 	ramdump_info->dump_data.len = ramdump_info->ramdump_size;
 	ramdump_info->dump_data.version = CNSS_DUMP_FORMAT_VER;
 	ramdump_info->dump_data.magic = CNSS_DUMP_MAGIC_VER_V2;
-	strlcpy(ramdump_info->dump_data.name, CNSS_DUMP_NAME,
+	strscpy(ramdump_info->dump_data.name, CNSS_DUMP_NAME,
 		sizeof(ramdump_info->dump_data.name));
 	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
 	dump_entry.addr = virt_to_phys(&ramdump_info->dump_data);
@@ -3741,7 +3805,7 @@ static int cnss_register_ramdump_v2(struct cnss_plat_data *plat_priv)
 	dump_data->version = CNSS_DUMP_FORMAT_VER_V2;
 	dump_data->magic = CNSS_DUMP_MAGIC_VER_V2;
 	dump_data->seg_version = CNSS_DUMP_SEG_VER;
-	strlcpy(dump_data->name, CNSS_DUMP_NAME,
+	strscpy(dump_data->name, CNSS_DUMP_NAME,
 		sizeof(dump_data->name));
 	dump_entry.id = MSM_DUMP_DATA_CNSS_WLAN;
 	dump_entry.addr = virt_to_phys(dump_data);
@@ -3853,7 +3917,7 @@ int cnss_register_ramdump(struct cnss_plat_data *plat_priv)
 	dump_data->version = CNSS_DUMP_FORMAT_VER_V2;
 	dump_data->magic = CNSS_DUMP_MAGIC_VER_V2;
 	dump_data->seg_version = CNSS_DUMP_SEG_VER;
-	strlcpy(dump_data->name, CNSS_DUMP_NAME,
+	strscpy(dump_data->name, CNSS_DUMP_NAME,
 		sizeof(dump_data->name));
 
 	info_v2->ramdump_dev = dev;
@@ -4872,8 +4936,19 @@ static void cnss_sram_dump_init(struct cnss_plat_data *plat_priv)
 static void cnss_sram_dump_init(struct cnss_plat_data *plat_priv)
 {
 	if (plat_priv->device_id == QCA6490_DEVICE_ID &&
-	    cnss_get_host_build_type() == QMI_HOST_BUILD_TYPE_PRIMARY_V01)
-		plat_priv->sram_dump = kcalloc(SRAM_DUMP_SIZE, 1, GFP_KERNEL);
+	    cnss_get_host_build_type() == QMI_HOST_BUILD_TYPE_PRIMARY_V01) {
+		plat_priv->sram_dump_start_addr = SRAM_START;
+		plat_priv->sram_dump_size = SRAM_DUMP_SIZE;
+	} else if (plat_priv->device_id == PEACH_DEVICE_ID) {
+		plat_priv->sram_dump_start_addr = SRAM_START;
+		plat_priv->sram_dump_size = PEACH_SRAM_SIZE;
+	}
+
+	/* Postpone sram_dump allocation to when it is required.
+	 *
+	 * Now it is allocated in cnss_pci_dump_sram() for PCI, and only freed
+	 * in cnss_sram_dump_deinit().
+	 */
 }
 #endif
 
@@ -4900,8 +4975,23 @@ void cnss_fmd_status_update_cb(void *cb_ctx, bool status)
 	struct cnss_plat_data *plat_priv = (struct cnss_plat_data *)cb_ctx;
 
 	cnss_pr_dbg("FMD status update: %d\n", status);
-	if (status)
+	if (status) {
 		set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
+		cnss_bus_update_status(plat_priv, CNSS_SYS_REBOOT);
+		cnss_bus_fmd_status(plat_priv, status);
+	}
+}
+
+static void cnss_req_firmware_timeout_handler(struct timer_list *t)
+{
+	struct cnss_plat_data *plat_priv =
+		from_timer(plat_priv, t, req_firmware_dbg_timer);
+
+	cnss_pr_err("request_firmware times out after %d ms, state: 0x%lx\n",
+		    plat_priv->ctrl_params.req_fw_timeout,
+		    plat_priv->driver_state);
+
+	CNSS_ASSERT(0);
 }
 
 static int cnss_misc_init(struct cnss_plat_data *plat_priv)
@@ -4911,6 +5001,9 @@ static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 	ret = cnss_init_sol_gpio(plat_priv);
 	if (ret)
 		return ret;
+
+	timer_setup(&plat_priv->req_firmware_dbg_timer,
+		    cnss_req_firmware_timeout_handler, 0);
 
 	timer_setup(&plat_priv->fw_boot_timer,
 		    cnss_bus_fw_boot_timeout_hdlr, 0);
@@ -4970,9 +5063,11 @@ static void cnss_sram_dump_deinit(struct cnss_plat_data *plat_priv)
 #else
 static void cnss_sram_dump_deinit(struct cnss_plat_data *plat_priv)
 {
-	if (plat_priv->device_id == QCA6490_DEVICE_ID &&
-	    cnss_get_host_build_type() == QMI_HOST_BUILD_TYPE_PRIMARY_V01)
-		kfree(plat_priv->sram_dump);
+	/* Free sram_dump, if it was allocated */
+	if (plat_priv->sram_dump) {
+		vfree(plat_priv->sram_dump);
+		plat_priv->sram_dump = NULL;
+	}
 }
 #endif
 
@@ -5013,6 +5108,7 @@ static void cnss_init_control_params(struct cnss_plat_data *plat_priv)
 	plat_priv->ctrl_params.mhi_timeout = CNSS_MHI_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.mhi_m2_timeout = CNSS_MHI_M2_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.qmi_timeout = CNSS_QMI_TIMEOUT_DEFAULT;
+	plat_priv->ctrl_params.req_fw_timeout = CNSS_REQ_FW_TIMEOUT_DEFAULT;
 	plat_priv->ctrl_params.bdf_type = CNSS_BDF_TYPE_DEFAULT;
 	plat_priv->ctrl_params.time_sync_period = CNSS_TIME_SYNC_PERIOD_DEFAULT;
 	cnss_init_time_sync_period_default(plat_priv);
@@ -5465,6 +5561,43 @@ int cnss_get_curr_therm_cdev_state(struct device *dev,
 }
 EXPORT_SYMBOL(cnss_get_curr_therm_cdev_state);
 
+void cnss_get_cpumask_for_wlan_rx_interrupts(struct device *dev,
+					     unsigned int *cpu_mask)
+{
+	struct cnss_plat_data *priv = cnss_get_plat_priv(NULL);
+
+	*cpu_mask = priv->cpumask_for_rx_intrs;
+}
+EXPORT_SYMBOL(cnss_get_cpumask_for_wlan_rx_interrupts);
+
+void cnss_get_cpumask_for_wlan_tx_comp_interrupts(struct device *dev,
+						  unsigned int *cpu_mask)
+{
+	struct cnss_plat_data *priv = cnss_get_plat_priv(NULL);
+
+	*cpu_mask = priv->cpumask_for_tx_comp_intrs;
+}
+EXPORT_SYMBOL(cnss_get_cpumask_for_wlan_tx_comp_interrupts);
+
+static void
+cnss_get_cpumask_for_wlan_txrx_intr(struct cnss_plat_data *plat_priv)
+{
+	struct device *dev = &plat_priv->plat_dev->dev;
+	uint32_t cpumask[CPUMASK_ARRAY_SIZE];
+	int ret;
+
+	ret = of_property_read_u32_array(dev->of_node,
+					 "wlan-txrx-intr-cpumask",
+					 cpumask, CPUMASK_ARRAY_SIZE);
+	if (ret) {
+		cnss_pr_err("Failed to get cpumask for wlan txrx interrupts");
+		return;
+	}
+
+	plat_priv->cpumask_for_rx_intrs = cpumask[0];
+	plat_priv->cpumask_for_tx_comp_intrs = cpumask[1];
+}
+
 static int cnss_probe(struct platform_device *plat_dev)
 {
 	int ret = 0;
@@ -5547,6 +5680,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	cnss_get_cpr_info(plat_priv);
 	cnss_aop_interface_init(plat_priv);
 	cnss_init_control_params(plat_priv);
+	cnss_get_cpumask_for_wlan_txrx_intr(plat_priv);
 
 	ret = cnss_get_resources(plat_priv);
 	if (ret)
@@ -5609,6 +5743,7 @@ deinit_misc:
 destroy_debugfs:
 	cnss_debugfs_destroy(plat_priv);
 deinit_dms:
+	cnss_cancel_dms_work();
 	cnss_dms_deinit(plat_priv);
 deinit_event_work:
 	cnss_event_work_deinit(plat_priv);
@@ -5640,10 +5775,10 @@ static int cnss_remove(struct platform_device *plat_dev)
 	cnss_bus_deinit(plat_priv);
 	cnss_misc_deinit(plat_priv);
 	cnss_debugfs_destroy(plat_priv);
+	cnss_cancel_dms_work();
 	cnss_dms_deinit(plat_priv);
 	cnss_qmi_deinit(plat_priv);
 	cnss_event_work_deinit(plat_priv);
-	cnss_cancel_dms_work();
 	cnss_remove_sysfs(plat_priv);
 	cnss_unregister_bus_scale(plat_priv);
 	cnss_unregister_esoc(plat_priv);

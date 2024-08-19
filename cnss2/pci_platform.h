@@ -6,6 +6,41 @@
 
 #include "pci.h"
 
+#ifdef CONFIG_ONE_MSI_VECTOR
+int cnss_pci_get_one_msi_assignment(struct cnss_pci_data *pci_priv);
+bool cnss_pci_fallback_one_msi(struct cnss_pci_data *pci_priv,
+			       int *num_vectors);
+bool cnss_pci_is_one_msi(struct cnss_pci_data *pci_priv);
+int cnss_pci_get_one_msi_mhi_irq_array_size(struct cnss_pci_data *pci_priv);
+bool cnss_pci_is_force_one_msi(struct cnss_pci_data *pci_priv);
+#else
+static inline int cnss_pci_get_one_msi_assignment(struct cnss_pci_data *pci_priv)
+{
+	return 0;
+}
+
+static inline bool cnss_pci_fallback_one_msi(struct cnss_pci_data *pci_priv,
+			       int *num_vectors)
+{
+	return false;
+}
+
+static inline bool cnss_pci_is_one_msi(struct cnss_pci_data *pci_priv)
+{
+	return false;
+}
+
+static inline int cnss_pci_get_one_msi_mhi_irq_array_size(struct cnss_pci_data *pci_priv)
+{
+	return 0;
+}
+
+static inline bool cnss_pci_is_force_one_msi(struct cnss_pci_data *pci_priv)
+{
+	return false;
+}
+#endif
+
 #if IS_ENABLED(CONFIG_PCI_MSM)
 /**
  * _cnss_pci_enumerate() - Enumerate PCIe endpoints
@@ -29,6 +64,18 @@ int _cnss_pci_enumerate(struct cnss_plat_data *plat_priv, u32 rc_num);
  * Return: 0 for success, negative value for error
  */
 int cnss_pci_assert_perst(struct cnss_pci_data *pci_priv);
+
+/**
+ * cnss_pci_fmd_enable() - Update FMD status to PCIe
+ * @pci_priv: driver PCI bus context pointer
+ *
+ * This function shall call corresponding PCIe root complex driver API
+ * to update FMD status. The purpose of this API is to handle PERST
+ * during execution of FMD recipe.
+ *
+ * Return: 0 for success, negative value for error
+ */
+int cnss_pci_fmd_enable(struct cnss_pci_data *pci_priv);
 
 /**
  * cnss_pci_disable_pc() - Disable PCIe link power collapse from RC driver
@@ -107,12 +154,6 @@ int __cnss_pci_prevent_l1(struct device *dev);
 void cnss_pci_allow_l1(struct device *dev);
 void __cnss_pci_allow_l1(struct device *dev);
 int cnss_pci_get_msi_assignment(struct cnss_pci_data *pci_priv);
-int cnss_pci_get_one_msi_assignment(struct cnss_pci_data *pci_priv);
-bool cnss_pci_fallback_one_msi(struct cnss_pci_data *pci_priv,
-			       int *num_vectors);
-bool cnss_pci_is_one_msi(struct cnss_pci_data *pci_priv);
-int cnss_pci_get_one_msi_mhi_irq_array_size(struct cnss_pci_data *pci_priv);
-bool cnss_pci_is_force_one_msi(struct cnss_pci_data *pci_priv);
 int cnss_pci_get_iommu_addr(struct cnss_pci_data *pci_priv, struct device_node *of_node);
 int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv);
 void cnss_pci_update_drv_supported(struct cnss_pci_data *pci_priv);
@@ -139,6 +180,11 @@ int _cnss_pci_enumerate(struct cnss_plat_data *plat_priv, u32 rc_num)
 int cnss_pci_assert_perst(struct cnss_pci_data *pci_priv)
 {
 	return -EOPNOTSUPP;
+}
+
+int cnss_pci_fmd_enable(struct cnss_pci_data *pci_priv)
+{
+	return 0;
 }
 
 int cnss_pci_disable_pc(struct cnss_pci_data *pci_priv, bool vote)
@@ -175,11 +221,20 @@ int cnss_set_pci_link(struct cnss_pci_data *pci_priv, bool link_up)
 	return 0;
 }
 
+static inline int __cnss_pci_prevent_l1(struct device *dev)
+{
+	return 0;
+}
+
 int cnss_pci_prevent_l1(struct device *dev)
 {
 	return 0;
 }
 EXPORT_SYMBOL(cnss_pci_prevent_l1);
+
+static inline void __cnss_pci_allow_l1(struct device *dev)
+{
+}
 
 void cnss_pci_allow_l1(struct device *dev)
 {

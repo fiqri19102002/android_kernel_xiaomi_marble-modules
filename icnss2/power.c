@@ -171,7 +171,8 @@ static int icnss_get_vreg_single(struct icnss_priv *priv,
 			vreg->cfg.delay_us = be32_to_cpup(&prop[3]);
 			break;
 		case 4:
-			if (priv->device_id == WCN6750_DEVICE_ID)
+			if (priv->device_id == WCN6750_DEVICE_ID ||
+			    priv->device_id == WCN7750_DEVICE_ID)
 				vreg->cfg.need_unvote = be32_to_cpup(&prop[4]);
 			else
 				vreg->cfg.need_unvote = 0;

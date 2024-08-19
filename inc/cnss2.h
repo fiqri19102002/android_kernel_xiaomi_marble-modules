@@ -452,6 +452,7 @@ extern int cnss_send_buffer_to_afcmem(struct device *dev, const uint8_t *afcdb,
 extern int cnss_reset_afcmem(struct device *dev, uint8_t slotid);
 extern bool cnss_get_fw_cap(struct device *dev, enum cnss_fw_caps fw_cap);
 extern bool cnss_audio_is_direct_link_supported(struct device *dev);
+extern bool cnss_ipa_wlan_shared_smmu_supported(struct device *dev);
 extern int cnss_set_wfc_mode(struct device *dev, struct cnss_wfc_cfg cfg);
 extern int cnss_thermal_cdev_register(struct device *dev,
 				      unsigned long max_state,
@@ -467,4 +468,8 @@ extern int cnss_register_driver_async_data_cb(struct device *dev, void *cb_ctx,
 					      int (*cb)(void *ctx,
 					      uint16_t type, void *event,
 					      int event_len));
+extern void cnss_get_cpumask_for_wlan_rx_interrupts(struct device *dev,
+						    unsigned int *cpumask);
+extern void cnss_get_cpumask_for_wlan_tx_comp_interrupts(struct device *dev,
+							 unsigned int *cpumask);
 #endif /* _NET_CNSS2_H */

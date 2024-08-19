@@ -49,6 +49,11 @@ int cnss_pci_assert_perst(struct cnss_pci_data *pci_priv)
 				   PM_OPTIONS_DEFAULT);
 }
 
+int cnss_pci_fmd_enable(struct cnss_pci_data *pci_priv)
+{
+	return msm_pcie_fmd_enable(pci_priv->pci_dev);
+}
+
 int cnss_pci_disable_pc(struct cnss_pci_data *pci_priv, bool vote)
 {
 	struct pci_dev *pci_dev = pci_priv->pci_dev;
@@ -548,32 +553,6 @@ bool cnss_pci_is_force_one_msi(struct cnss_pci_data *pci_priv)
 	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
 
 	return test_bit(FORCE_ONE_MSI, &plat_priv->ctrl_params.quirks);
-}
-#else
-int cnss_pci_get_one_msi_assignment(struct cnss_pci_data *pci_priv)
-{
-	return 0;
-}
-
-bool cnss_pci_fallback_one_msi(struct cnss_pci_data *pci_priv,
-			       int *num_vectors)
-{
-	return false;
-}
-
-bool cnss_pci_is_one_msi(struct cnss_pci_data *pci_priv)
-{
-	return false;
-}
-
-int cnss_pci_get_one_msi_mhi_irq_array_size(struct cnss_pci_data *pci_priv)
-{
-	return 0;
-}
-
-bool cnss_pci_is_force_one_msi(struct cnss_pci_data *pci_priv)
-{
-	return false;
 }
 #endif
 

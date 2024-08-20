@@ -87,7 +87,12 @@ int openChannel(void *ctl)
 	} else if (info->bus_type == BUS_SPI) {
 		gClient[idx].client = info->spi_client;
 		logError(1, "%s %s: spi_master: flags = %04X !\n", tag, __func__,
+#if	(LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
 			 info->spi_client->master->flags);
+#else
+			 info->spi_client->controller->flags);
+#endif
+
 		logError(1,
 			 "%s %s: spi_device: max_speed = %d chip select = %02X bits_per_words = %d mode = %04X !\n",
 			 tag, __func__, info->spi_client->max_speed_hz,

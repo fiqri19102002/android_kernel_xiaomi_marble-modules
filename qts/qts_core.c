@@ -35,6 +35,18 @@ struct drm_panel *active_panel;
 
 static void qts_trusted_touch_abort_handler(struct qts_data *qts_data, int error);
 
+#if	(LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
+static inline struct spi_master *qts_get_spi_controller(struct spi_device *spi_dev)
+{
+	return spi_dev->master;
+}
+#else
+static inline struct spi_controller *qts_get_spi_controller(struct spi_device *spi_dev)
+{
+	return spi_dev->controller;
+}
+#endif
+
 static struct gh_acl_desc *qts_vm_get_acl(enum gh_vm_names vm_name)
 {
 	struct gh_acl_desc *acl_desc;
@@ -422,7 +434,7 @@ static void qts_trusted_touch_tvm_vm_mode_enable(struct qts_data *qts_data)
 	if (qts_data->bus_type == QTS_BUS_TYPE_I2C)
 		rc = pm_runtime_get_sync(qts_data->client->adapter->dev.parent);
 	else
-		rc = pm_runtime_get_sync(qts_data->spi->master->dev.parent);
+		rc = pm_runtime_get_sync(qts_get_spi_controller(qts_data->spi)->dev.parent);
 
 	if (rc < 0) {
 		pr_err("failed to get sync rc:%d\n", rc);
@@ -607,7 +619,7 @@ static void qts_trusted_touch_tvm_vm_mode_disable(struct qts_data *qts_data)
 	if (qts_data->bus_type == QTS_BUS_TYPE_I2C)
 		pm_runtime_put_sync(qts_data->client->adapter->dev.parent);
 	else
-		pm_runtime_put_sync(qts_data->spi->master->dev.parent);
+		pm_runtime_put_sync(qts_get_spi_controller(qts_data->spi)->dev.parent);
 
 	qts_trusted_touch_set_vm_state(qts_data, TVM_I2C_SESSION_RELEASED);
 	rc = qts_vm_mem_release(qts_data);
@@ -703,7 +715,7 @@ static void qts_trusted_touch_abort_tvm(struct qts_data *qts_data)
 		if (qts_data->bus_type == QTS_BUS_TYPE_I2C)
 			pm_runtime_put_sync(qts_data->client->adapter->dev.parent);
 		else
-			pm_runtime_put_sync(qts_data->spi->master->dev.parent);
+			pm_runtime_put_sync(qts_get_spi_controller(qts_data->spi)->dev.parent);
 		fallthrough;
 	case TVM_I2C_SESSION_RELEASED:
 		rc = qts_vm_mem_release(qts_data);
@@ -826,7 +838,7 @@ static int qts_bus_get(struct qts_data *qts_data)
 	if (qts_data->bus_type == QTS_BUS_TYPE_I2C)
 		dev = qts_data->client->adapter->dev.parent;
 	else
-		dev = qts_data->spi->master->dev.parent;
+		dev = qts_get_spi_controller(qts_data->spi)->dev.parent;
 
 	mutex_lock(&qts_data->qts_clk_io_ctrl_mutex);
 	rc = pm_runtime_get_sync(dev);
@@ -848,7 +860,7 @@ static void qts_bus_put(struct qts_data *qts_data)
 	if (qts_data->bus_type == QTS_BUS_TYPE_I2C)
 		dev = qts_data->client->adapter->dev.parent;
 	else
-		dev = qts_data->spi->master->dev.parent;
+		dev = qts_get_spi_controller(qts_data->spi)->dev.parent;
 
 	mutex_lock(&qts_data->qts_clk_io_ctrl_mutex);
 	if (qts_data->core_clk != NULL && qts_data->iface_clk != NULL)

@@ -1,5 +1,5 @@
 /* Copyright (c) 2020 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,10 @@
 #include <trace/hooks/sched.h>
 #include <linux/tracepoint.h>
 #include <trace/hooks/vendor_hooks.h>
+#if (KERNEL_VERSION((0xd03+244-0xdf1), 9, (0xd2d+202-0xdf7)) <= \
+LINUX_VERSION_CODE)
+#include <net/rps.h>
+#endif
 #define DATARMNET94fa0a43a2 489335
 void DATARMNET4095253347(struct DATARMNET9b44b71ee9*ep);void DATARMNETf7d317ed55
 (struct DATARMNET9b44b71ee9*ep);void DATARMNET36e5e526fa(struct 

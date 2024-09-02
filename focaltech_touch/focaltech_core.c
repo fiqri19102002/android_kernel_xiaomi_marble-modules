@@ -2703,7 +2703,7 @@ static int fts_ts_probe_delayed(struct fts_ts_data *fts_data)
 		atomic_set(&fts_data->delayed_vm_probe_pending, 1);
 		return 0;
 	}
-	goto tvm_setup;
+	//goto tvm_setup;
 #endif
 #endif
 	ret = fts_gpio_configure(fts_data);
@@ -2728,7 +2728,7 @@ static int fts_ts_probe_delayed(struct fts_ts_data *fts_data)
 	}
 
 #ifdef CONFIG_ARCH_QTI_VM
-tvm_setup:
+//tvm_setup:
 #endif
 	ret = fts_irq_registration(fts_data);
 	if (ret) {

@@ -34,6 +34,10 @@
  */
 #define MAX_PHY_MSK_PER_REG 4
 
+/* xiaomi add for mipi phy backup setting begin*/
+uint64_t xm_mipi_kmd_setting = 0;
+/* xiaomi add for mipi phy backup setting end*/
+
 static DEFINE_MUTEX(active_csiphy_cnt_mutex);
 static DEFINE_MUTEX(main_aon_selection);
 
@@ -943,6 +947,62 @@ static int cam_csiphy_cphy_get_data_rate_lane_idx(
 	return rc;
 }
 
+/* xiaomi add for mipi phy backup setting begin*/
+static void XM_MIPI_KMD_GET_CTRL_FLAG_VAL(int ctl_no, u8 *flag, u8 *val)
+{
+	u8 *p1;
+	u8 *p2;
+
+	p1 = flag;
+	p2 = val;
+
+	*p1 = XM_MIPI_KMD_GET_CTRL_FLAG(ctl_no);
+	*p2 = XM_MIPI_KMD_GET_CTRL_VAL(ctl_no);
+
+	return;
+}
+
+static int cam_csiphy_cphy_reconfig_work(struct csiphy_device *csiphy_device, struct data_rate_reg_info_t *drate_settings)
+{
+	const char *p = NULL;
+	u8 phy_index = 0;
+	u8 phy_flag = 0;
+	u8 phy_val = 0;
+	int skip_current_setting = 0;
+
+	if ((!csiphy_device) || (!drate_settings)) {
+		skip_current_setting = 0;
+		return skip_current_setting;
+	}
+
+	if ((csiphy_device->device_has_customized == 1) && (drate_settings->this_setting_max_choice != 0)) {
+		if (strcmp(csiphy_device->phy_dts_name, "qcom,csiphy-v2.1.3-m16t") == 0) {
+			p = csiphy_device->device_name;
+			p += strlen(csiphy_device->device_name) - 1;
+			kstrtou8(p, 0, &phy_index);
+			XM_MIPI_KMD_GET_CTRL_FLAG_VAL(phy_index, &phy_flag, &phy_val);
+			CAM_INFO(CAM_ISP, "phy_index[%d], flag=[%d], val=[%d], max_choice[%d]", phy_index, phy_flag, phy_val, drate_settings->this_setting_max_choice);
+			if (phy_flag) {
+				// exceed the max choice, using the 1st setting, so don't skip this setting;
+				if (phy_val >= drate_settings->this_setting_max_choice) {
+					skip_current_setting = 0;
+				} else {
+					if (phy_val != drate_settings->this_setting_current_choice) {
+						skip_current_setting = 1;// continue...
+					} else {
+						skip_current_setting = 0;// find the backup one
+					}
+				}
+			}
+		} else {
+			// default is using the 1st setting;
+			skip_current_setting = 0;
+		}
+	}
+	return skip_current_setting;
+}
+/* xiaomi add for mipi phy backup setting end*/
+
 static int cam_csiphy_cphy_data_rate_config(
 	struct csiphy_device *csiphy_device, int32_t idx)
 {
@@ -998,6 +1058,20 @@ static int cam_csiphy_cphy_data_rate_config(
 				data_rate_idx, supported_phy_bw, required_phy_data_rate);
 			continue;
 		}
+		/* xiaomi add for mipi phy backup setting begin*/
+		if (cam_csiphy_cphy_reconfig_work(csiphy_device, &drate_settings[data_rate_idx]) == 1) {
+			CAM_INFO(CAM_CSIPHY,
+				"double Skipping table [%d] with BW: %llu, Required data_rate: %llu",
+				data_rate_idx, supported_phy_bw, required_phy_data_rate);
+			continue;
+		}
+
+		CAM_INFO(CAM_CSIPHY,
+				"table [%d] with BW: %llu, Required data_rate: %llu, max.using[%d.%d]",
+				data_rate_idx, supported_phy_bw, required_phy_data_rate,
+				drate_settings[data_rate_idx].this_setting_max_choice, drate_settings[data_rate_idx].this_setting_current_choice);
+		/* xiaomi add for mipi phy backup setting end*/
+
 
 		CAM_DBG(CAM_CSIPHY, "table[%d] BW : %llu Selected",
 			data_rate_idx, supported_phy_bw);
@@ -1364,7 +1438,8 @@ void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
 		cam_csiphy_reset(csiphy_dev);
 		cam_soc_util_disable_platform_resource(soc_info, true, true);
 
-		cam_cpas_stop(csiphy_dev->cpas_handle);
+		//deleted by xiaomi
+		//cam_cpas_stop(csiphy_dev->cpas_handle);
 		csiphy_dev->csiphy_state = CAM_CSIPHY_ACQUIRE;
 	}
 
@@ -1380,6 +1455,8 @@ void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
 		}
 	}
 
+	//xiaomi: force stop cpas
+	cam_cpas_stop(csiphy_dev->cpas_handle);
 	csiphy_dev->ref_count = 0;
 	csiphy_dev->acquire_count = 0;
 	csiphy_dev->start_dev_count = 0;

@@ -42,6 +42,7 @@
 
 #define AW_READ_CHIPID_RETRIES		5	/* 5 times */
 #define AW_READ_CHIPID_RETRY_DELAY	5	/* 5 ms */
+#define AW882XX_RETRY_WAIT_TIME  3000000
 
 static unsigned int g_aw882xx_dev_cnt = 0;
 static unsigned int g_print_dbg = 0;
@@ -187,6 +188,16 @@ int aw882xx_i2c_write(struct aw882xx *aw882xx,
 		}
 		cnt++;
 	}
+	if(ret < 0){
+		aw_dev_err(aw882xx->dev, "retray 5 times,still error,try usleep 3s, i2c_write cnt=%d error=%d",
+					cnt, ret);
+	        usleep_range(AW882XX_RETRY_WAIT_TIME,AW882XX_RETRY_WAIT_TIME + 100);
+		ret = aw882xx_i2c_writes(aw882xx, reg_addr, buf, 2);
+		if(ret < 0){
+			aw_dev_err(aw882xx->dev, "usleep 3s still ereror, i2c_write cnt=%d error=%d",
+					cnt, ret);
+		}
+	}
 
 	return ret;
 }
@@ -211,6 +222,16 @@ int aw882xx_i2c_read(struct aw882xx *aw882xx,
 			break;
 		}
 		cnt++;
+	}
+	if(ret < 0){
+		aw_dev_err(aw882xx->dev, "retray 5 times,still error,try usleep 3s, i2c_write cnt=%d error=%d",
+					cnt, ret);
+	        usleep_range(AW882XX_RETRY_WAIT_TIME,AW882XX_RETRY_WAIT_TIME + 100);
+		ret = aw882xx_i2c_reads(aw882xx, reg_addr, buf, 2);
+		if(ret < 0){
+			aw_dev_err(aw882xx->dev, "usleep 3s still ereror, i2c_write cnt=%d error=%d",
+					cnt, ret);
+		}
 	}
 
 	return ret;
@@ -2469,7 +2490,7 @@ static int aw882xx_i2c_probe(struct i2c_client *i2c,
 	/*codec register*/
 	ret = aw_componet_codec_register(aw882xx);
 	if (ret) {
-		aw_dev_err(&i2c->dev, "codec register failde");
+		aw_dev_err(&i2c->dev, "codec register failed");
 		return ret;
 	}
 
@@ -2498,7 +2519,6 @@ static int aw882xx_i2c_probe(struct i2c_client *i2c,
 	return ret;
 err_sysfs:
 	aw_componet_codec_ops.unregister_codec(&i2c->dev);
-
 	return ret;
 }
 
@@ -2591,7 +2611,6 @@ static int __init aw882xx_i2c_init(void)
 	ret = i2c_add_driver(&aw882xx_i2c_driver);
 	if (ret)
 		aw_pr_err("fail to add aw882xx device into i2c");
-
 	return ret;
 }
 module_init(aw882xx_i2c_init);
@@ -2603,9 +2622,5 @@ static void __exit aw882xx_i2c_exit(void)
 }
 module_exit(aw882xx_i2c_exit);
 
-
 MODULE_DESCRIPTION("ASoC AW882XX Smart PA Driver");
 MODULE_LICENSE("GPL v2");
-
-
-

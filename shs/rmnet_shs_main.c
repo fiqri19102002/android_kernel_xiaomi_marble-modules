@@ -49,12 +49,12 @@ LINUX_VERSION_CODE)
 LINUX_VERSION_CODE)
 #include <net/netdev_rx_queue.h>
 #endif
-static char*verinfo[]={"\x33\x33\x64\x31\x37\x34\x34\x66",
-"\x31\x34\x38\x61\x38\x63\x39\x63","\x31\x61\x63\x63\x38\x33\x36\x32",
-"\x66\x38\x35\x35\x65\x39\x63\x30","\x30\x62\x31\x34\x30\x66\x35\x65",
-"\x65\x36\x31\x39\x64\x64\x30\x38","\x36\x37\x30\x32\x34\x34\x63\x35",
-"\x65\x34\x64\x30\x39\x61\x38\x66","\x35\x38\x61\x61\x39\x62\x65\x65",
-"\x62\x62\x32\x65\x66\x37\x30\x39","\x61\x61\x34\x35\x63\x63\x39\x64",};
+static char*verinfo[]={"\x30\x38\x31\x31\x36\x62\x33\x63",
+"\x33\x33\x64\x31\x37\x34\x34\x66","\x31\x34\x38\x61\x38\x63\x39\x63",
+"\x31\x61\x63\x63\x38\x33\x36\x32","\x66\x38\x35\x35\x65\x39\x63\x30",
+"\x30\x62\x31\x34\x30\x66\x35\x65","\x65\x36\x31\x39\x64\x64\x30\x38",
+"\x36\x37\x30\x32\x34\x34\x63\x35","\x65\x34\x64\x30\x39\x61\x38\x66",
+"\x35\x38\x61\x61\x39\x62\x65\x65","\x62\x62\x32\x65\x66\x37\x30\x39",};
 module_param_array(verinfo,charp,NULL,(0xcb7+5769-0x221c));MODULE_PARM_DESC(
 verinfo,
 "\x56\x65\x72\x73\x69\x6f\x6e\x20\x6f\x66\x20\x74\x68\x65\x20\x64\x72\x69\x76\x65\x72"
@@ -728,8 +728,15 @@ cancel_work_sync(&DATARMNETecc0627c70.DATARMNET132b9c7dc4[i].DATARMNET33110a3ff5
 struct softnet_data*DATARMNETe95ad852b4=&per_cpu(softnet_data,cpu);rtnl_lock();
 while((skb=skb_dequeue_tail(list))!=NULL){if(rmnet_is_real_dev_registered(skb->
 dev)){DATARMNET68d84e7b98[DATARMNETf8de7cb644]++;dev_core_stats_rx_dropped_inc(
-skb->dev);input_queue_head_incr(DATARMNETe95ad852b4);DATARMNETe95ad852b4->
-dropped++;kfree_skb(skb);}}rtnl_unlock();return(0xd2d+202-0xdf7);}static int 
+skb->dev);
+#if (KERNEL_VERSION((0xd03+244-0xdf1), 9, (0xd2d+202-0xdf7)) <= \
+LINUX_VERSION_CODE)
+rps_input_queue_head_incr(DATARMNETe95ad852b4);atomic_inc(&DATARMNETe95ad852b4->
+dropped);
+#else
+input_queue_head_incr(DATARMNETe95ad852b4);DATARMNETe95ad852b4->dropped++;
+#endif
+kfree_skb(skb);}}rtnl_unlock();return(0xd2d+202-0xdf7);}static int 
 DATARMNET2aa4ef6ff9(struct notifier_block*DATARMNETea991f24f2,unsigned long 
 DATARMNET7ee7b05b93,void*DATARMNETe53e117dd2){int DATARMNETc3193054f2,
 DATARMNET25fc1e341e,cpu;int*DATARMNETc628e18b55=(int*)DATARMNETe53e117dd2;struct

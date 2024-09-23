@@ -1,5 +1,5 @@
 /* Copyright (c) 2020-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021,2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,7 @@
 
 #define RMNET_LL_MAX_RECYCLE_ITER 16
 
+static int rmnet_ll_ipa_ready_status = RMNET_LL_PIPE_FAILED;
 static struct rmnet_ll_stats rmnet_ll_stats;
 /* For TX sync with DMA operations */
 DEFINE_SPINLOCK(rmnet_ll_tx_lock);
@@ -160,6 +161,11 @@ int rmnet_ll_send_skb(struct sk_buff *skb)
 struct rmnet_ll_stats *rmnet_ll_get_stats(void)
 {
 	return &rmnet_ll_stats;
+}
+
+int *rmnet_ll_get_ipa_ready_status(void)
+{
+	return &rmnet_ll_ipa_ready_status;
 }
 
 int rmnet_ll_init(void)

@@ -1,5 +1,5 @@
 /* Copyright (c) 2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -135,6 +135,7 @@ static void rmnet_ll_ipa_remove(void *arg)
 static void rmnet_ll_ipa_ready(void * __unused)
 {
 	int rc;
+	int *status = rmnet_ll_get_ipa_ready_status();
 
 	rc = ipa_register_rmnet_ll_cb(rmnet_ll_ipa_probe,
 				      (void *)&rmnet_ll_ipa_ep,
@@ -142,9 +143,17 @@ static void rmnet_ll_ipa_ready(void * __unused)
 				      (void *)&rmnet_ll_ipa_ep,
 				      rmnet_ll_ipa_rx,
 				      (void *)&rmnet_ll_ipa_ep);
-	if (rc)
+	if (rc) {
 		pr_err("%s(): Registering IPA LL callback failed with rc %d\n",
 		       __func__, rc);
+		if  (rc != -ENXIO)
+			*status = RMNET_LL_PIPE_FAILED;
+		else
+			*status = RMNET_LL_PIPE_FAILED_ENXIO;
+		return;
+	}
+
+	*status = RMNET_LL_PIPE_SUCCESS;
 }
 
 static int rmnet_ll_ipa_tx(struct sk_buff *skb)

@@ -1,5 +1,5 @@
 /* Copyright (c) 2020-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021,2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,8 +37,15 @@ struct rmnet_ll_stats {
 		u64 tx_fc_err;
 };
 
+enum {
+	RMNET_LL_PIPE_FAILED_ENXIO = -ENXIO,
+	RMNET_LL_PIPE_FAILED = -1,
+	RMNET_LL_PIPE_SUCCESS = 0,
+};
+
 int rmnet_ll_send_skb(struct sk_buff *skb);
 struct rmnet_ll_stats *rmnet_ll_get_stats(void);
+int *rmnet_ll_get_ipa_ready_status(void);
 int rmnet_ll_init(void);
 void rmnet_ll_exit(void);
 

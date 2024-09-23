@@ -275,10 +275,11 @@ TRACE_EVENT(dfc_qmap,
 		__entry->chn = chn;
 	),
 
-	TP_printk("[0x%02x] %s %s", __entry->chn,
-		__entry->in ? "<--" : "-->",
-		__print_array(__get_dynamic_array(data), __entry->len,
-			      sizeof(u8)))
+	TP_printk("[0x%02x]:[%zu] %s %s", __entry->chn, __entry->len,
+		  __entry->in ? "<--" : "-->",
+		  __print_array(__get_dynamic_array(data),
+				__entry->len < 80 ? __entry->len : 80,
+				sizeof(u8)))
 );
 
 TRACE_EVENT(dfc_adjust_grant,

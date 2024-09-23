@@ -112,8 +112,12 @@ static netdev_tx_t rmnet_vnd_start_xmit(struct sk_buff *skb,
 			return NETDEV_TX_OK;
 		}
 
-		if (RMNET_APS_LLC(skb->priority))
-			low_latency = true;
+		if (*(rmnet_ll_get_ipa_ready_status()) == RMNET_LL_PIPE_SUCCESS) {
+			if (RMNET_APS_LLC(skb->priority))
+				low_latency = true;
+		} else {
+			low_latency = false;
+		}
 
 		if (skb_is_gso(skb))
 			rmnet_module_hook_perf_seg_stat(priv->mux_id, skb);

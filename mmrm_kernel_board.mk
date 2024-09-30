@@ -1,4 +1,4 @@
-ifneq ($(TARGET_BOARD_PLATFORM), monaco)
+ifneq ($(filter $(TARGET_BOARD_PLATFORM), monaco vienna),$(TARGET_BOARD_PLATFORM))
 ifeq ($(call is-board-platform-in-list,$(TARGET_BOARD_PLATFORM)),true)
 BOARD_VENDOR_KERNEL_MODULES += $(KERNEL_MODULES_OUT)/msm-mmrm.ko
 BOARD_VENDOR_RAMDISK_KERNEL_MODULES += $(KERNEL_MODULES_OUT)/msm-mmrm.ko

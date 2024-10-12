@@ -13,6 +13,9 @@ define_modules("parrot", "perf")
 define_modules("monaco", "consolidate")
 define_modules("monaco", "perf")
 
+define_modules("tuna", "consolidate")
+define_modules("tuna", "perf")
+
 package(
     default_visibility = [
         "//visibility:public",

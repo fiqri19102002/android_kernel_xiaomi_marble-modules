@@ -6,41 +6,6 @@
 
 #include "pci.h"
 
-#ifdef CONFIG_ONE_MSI_VECTOR
-int cnss_pci_get_one_msi_assignment(struct cnss_pci_data *pci_priv);
-bool cnss_pci_fallback_one_msi(struct cnss_pci_data *pci_priv,
-			       int *num_vectors);
-bool cnss_pci_is_one_msi(struct cnss_pci_data *pci_priv);
-int cnss_pci_get_one_msi_mhi_irq_array_size(struct cnss_pci_data *pci_priv);
-bool cnss_pci_is_force_one_msi(struct cnss_pci_data *pci_priv);
-#else
-static inline int cnss_pci_get_one_msi_assignment(struct cnss_pci_data *pci_priv)
-{
-	return 0;
-}
-
-static inline bool cnss_pci_fallback_one_msi(struct cnss_pci_data *pci_priv,
-			       int *num_vectors)
-{
-	return false;
-}
-
-static inline bool cnss_pci_is_one_msi(struct cnss_pci_data *pci_priv)
-{
-	return false;
-}
-
-static inline int cnss_pci_get_one_msi_mhi_irq_array_size(struct cnss_pci_data *pci_priv)
-{
-	return 0;
-}
-
-static inline bool cnss_pci_is_force_one_msi(struct cnss_pci_data *pci_priv)
-{
-	return false;
-}
-#endif
-
 #if IS_ENABLED(CONFIG_PCI_MSM)
 /**
  * _cnss_pci_enumerate() - Enumerate PCIe endpoints

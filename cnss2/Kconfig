@@ -179,3 +179,9 @@ config CNSS2_ENUM_WITH_LOW_SPEED
 	help
 	  Set link target speed to Gen1 before enum, and then restore default
 	  RC speed to re-establish link speed. For Genoa chip, needn't restore.
+
+config CNSS2_FMD_FEATURE_ENABLE
+	bool "Enable CNSS2_FMD_FEATURE_ENABLE"
+	depends on CNSS2
+	help
+	  This enables the fmd functionality on cnss2 driver

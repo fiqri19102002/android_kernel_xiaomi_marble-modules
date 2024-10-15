@@ -87,6 +87,7 @@
 #define CNSS_CAL_START_PROBE_WAIT_MS	500
 #define CNSS_TIME_SYNC_PERIOD_INVALID	0xFFFFFFFF
 #define CPUMASK_ARRAY_SIZE		2
+#define MAX_SYSFS_USER_COMMAND_SIZE_LENGTH (5)
 
 enum cnss_cal_db_op {
 	CNSS_CAL_DB_UPLOAD,
@@ -838,7 +839,12 @@ int cnss_iommu_map(struct iommu_domain *domain,
 int cnss_iommu_map(struct iommu_domain *domain,
 		   unsigned long iova, phys_addr_t paddr, size_t size, int prot)
 {
-	return iommu_map(domain, iova, paddr, size, prot, GFP_KERNEL);
+	gfp_t gfp = GFP_KERNEL;
+
+	if (in_interrupt() || !preemptible() || rcu_preempt_depth())
+		gfp = GFP_ATOMIC;
+
+	return iommu_map(domain, iova, paddr, size, prot, gfp);
 }
 #endif
 
@@ -1362,6 +1368,8 @@ static char *cnss_driver_event_to_str(enum cnss_driver_event_type type)
 		return "QDSS_TRACE_FREE";
 	case CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA:
 		return "QDSS_TRACE_REQ_DATA";
+	case CNSS_DRIVER_EVENT_RESUME_POST_SOL:
+		return "RESUME_POST_SOL";
 	case CNSS_DRIVER_EVENT_MAX:
 		return "EVENT_MAX";
 	}
@@ -1479,6 +1487,8 @@ unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
 		return RECOVERY_TIMEOUT;
 	case CNSS_TIMEOUT_DAEMON_CONNECTION:
 		return qmi_timeout + CNSS_DAEMON_CONNECT_TIMEOUT_MS;
+	case CNSS_TIMEOUT_FW_LOAD:
+		return qmi_timeout + WLAN_FW_LOAD_TIMEOUT_MS;
 	default:
 		return qmi_timeout;
 	}
@@ -1863,19 +1873,22 @@ static irqreturn_t cnss_dev_sol_handler(int irq, void *data)
 {
 	struct cnss_plat_data *plat_priv = data;
 	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+	int sol_gpio_value;
 
+	sol_gpio_value = cnss_get_dev_sol_value(plat_priv);
 	if (test_bit(CNSS_POWER_OFF, &plat_priv->driver_state) ||
-	    test_bit(CNSS_SHUTDOWN_DEVICE, &plat_priv->driver_state)) {
-		cnss_pr_dbg("Ignore Dev SOL during device power off");
+	    test_bit(CNSS_IN_REBOOT, &plat_priv->driver_state) ||
+	    test_bit(CNSS_SHUTDOWN_DEVICE, &plat_priv->driver_state) ||
+	    sol_gpio_value == 1) {
+		cnss_pr_dbg("Ignore Dev SOL IRQ (%u) with driver state 0x%lx, dev_sol_val: %d\n",
+			    irq, plat_priv->driver_state, sol_gpio_value);
 		return IRQ_HANDLED;
 	}
-	if (cnss_get_dev_sol_value(plat_priv) == 1)
-		return IRQ_HANDLED;
 
 	sol_gpio->dev_sol_counter++;
-	cnss_pr_dbg("WLAN device SOL IRQ (%u) is asserted #%u, dev_sol_val: %d\n",
+	cnss_pr_dbg("Dev SOL IRQ (%u) is asserted #%u with driver state 0x%lx, dev_sol_val: %d\n",
 		    irq, sol_gpio->dev_sol_counter,
-		    cnss_get_dev_sol_value(plat_priv));
+		    plat_priv->driver_state, sol_gpio_value);
 
 	/* Make sure abort current suspend */
 	cnss_pm_stay_awake(plat_priv);
@@ -2138,6 +2151,9 @@ void cnss_recovery_handler(struct cnss_plat_data *plat_priv)
 
 	cnss_bus_dev_shutdown(plat_priv);
 	cnss_bus_dev_ramdump(plat_priv);
+
+	if (test_bit(CNSS_IN_SUSPEND_RESUME, &plat_priv->driver_state))
+		clear_bit(CNSS_IN_SUSPEND_RESUME, &plat_priv->driver_state);
 
 	/* If recovery is triggered before Host driver registration,
 	 * avoid device power up because eventually device will be
@@ -2846,6 +2862,20 @@ static int cnss_qdss_trace_req_data_hdlr(struct cnss_plat_data *plat_priv,
 	return ret;
 }
 
+static int cnss_resume_post_sol_hdlr(struct cnss_plat_data *plat_priv,
+					  void *data)
+{
+	int ret = 0;
+
+	if (!plat_priv)
+		return -ENODEV;
+
+	cnss_bus_recover_link_post_sol(plat_priv);
+
+	kfree(data);
+	return ret;
+}
+
 static void cnss_driver_event_work(struct work_struct *work)
 {
 	struct cnss_plat_data *plat_priv =
@@ -2862,6 +2892,8 @@ static void cnss_driver_event_work(struct work_struct *work)
 	cnss_pm_stay_awake(plat_priv);
 
 	spin_lock_irqsave(&plat_priv->event_lock, flags);
+
+	plat_priv->cnss_event_work_task = current;
 
 	while (!list_empty(&plat_priv->event_list)) {
 		event = list_first_entry(&plat_priv->event_list,
@@ -2949,6 +2981,10 @@ static void cnss_driver_event_work(struct work_struct *work)
 		case CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA:
 			ret = cnss_qdss_trace_req_data_hdlr(plat_priv,
 							    event->data);
+			break;
+		case CNSS_DRIVER_EVENT_RESUME_POST_SOL:
+			ret = cnss_resume_post_sol_hdlr(plat_priv,
+							     event->data);
 			break;
 		default:
 			cnss_pr_err("Invalid driver event type: %d",
@@ -3286,8 +3322,8 @@ static void init_elf_identification(struct elf32_hdr *ehdr, unsigned char class)
 	ehdr->e_ident[EI_OSABI] = ELFOSABI_NONE;
 }
 
-int cnss_qcom_elf_dump(struct list_head *segs, struct device *dev,
-		       unsigned char class)
+static int cnss_qcom_elf_dump(struct list_head *segs, struct device *dev,
+			      unsigned char class)
 {
 	struct cnss_qcom_dump_segment *segment;
 	void *phdr, *ehdr;
@@ -4071,17 +4107,32 @@ int cnss_minidump_remove_region(struct cnss_plat_data *plat_priv,
 }
 #endif /* CONFIG_QCOM_MINIDUMP */
 
+
+int cnss_request_firmware_update_timer(struct cnss_plat_data *plat_priv,
+				       const struct firmware **fw_entry,
+				       const char *filename)
+{
+	unsigned int timeout = cnss_get_timeout(plat_priv, CNSS_TIMEOUT_FW_LOAD);
+
+	mod_timer(&plat_priv->fw_boot_timer,
+		  jiffies + msecs_to_jiffies(timeout));
+	return firmware_request_nowarn(fw_entry, filename,
+				       &plat_priv->plat_dev->dev);
+}
+
 int cnss_request_firmware_direct(struct cnss_plat_data *plat_priv,
 				 const struct firmware **fw_entry,
 				 const char *filename)
 {
+	cnss_pr_dbg("Invoke firmware_request_nowarn for %s\n", filename);
 	if (IS_ENABLED(CONFIG_CNSS_REQ_FW_DIRECT))
 		return request_firmware_direct(fw_entry, filename,
 					       &plat_priv->plat_dev->dev);
 	else
-		return firmware_request_nowarn(fw_entry, filename,
-					       &plat_priv->plat_dev->dev);
+		return cnss_request_firmware_update_timer(plat_priv,
+							  fw_entry, filename);
 }
+
 
 #if IS_ENABLED(CONFIG_INTERCONNECT)
 /**
@@ -4218,7 +4269,7 @@ static int cnss_register_bus_scale(struct cnss_plat_data *plat_priv)
 static void cnss_unregister_bus_scale(struct cnss_plat_data *plat_priv) {}
 #endif /* CONFIG_INTERCONNECT */
 
-void cnss_daemon_connection_update_cb(void *cb_ctx, bool status)
+static void cnss_daemon_connection_update_cb(void *cb_ctx, bool status)
 {
 	struct cnss_plat_data *plat_priv = cb_ctx;
 
@@ -4335,7 +4386,7 @@ static ssize_t time_sync_period_show(struct device *dev,
  *
  * Result: return minimum time sync period present in vote from wlan and sys
  */
-uint32_t cnss_get_min_time_sync_period_by_vote(struct cnss_plat_data *plat_priv)
+static uint32_t cnss_get_min_time_sync_period_by_vote(struct cnss_plat_data *plat_priv)
 {
 	unsigned int i, min_time_sync_period = CNSS_TIME_SYNC_PERIOD_INVALID;
 	unsigned int time_sync_period;
@@ -4567,20 +4618,25 @@ static ssize_t qdss_conf_download_store(struct device *dev,
 	cnss_pr_dbg("Received QDSS download config command\n");
 	return count;
 }
-
 static ssize_t tme_opt_file_download_store(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t count)
 {
 	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
-	char cmd[5];
+	char cmd[MAX_SYSFS_USER_COMMAND_SIZE_LENGTH];
 
+	if (count > MAX_SYSFS_USER_COMMAND_SIZE_LENGTH) {
+		cnss_pr_err("Cmd length is larger than %zu bytes, count: %zu ",
+			     MAX_SYSFS_USER_COMMAND_SIZE_LENGTH, count);
+
+		return -EINVAL;
+	}
 	if (sscanf(buf, "%s", cmd) != 1)
 		return -EINVAL;
 
 	if (!test_bit(CNSS_FW_READY, &plat_priv->driver_state)) {
 		cnss_pr_err("Firmware is not ready yet\n");
-		return 0;
+		return count;
 	}
 
 	if (plat_priv->device_id == PEACH_DEVICE_ID &&

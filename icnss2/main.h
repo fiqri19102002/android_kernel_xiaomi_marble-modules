@@ -41,12 +41,14 @@
 #define ADRASTEA_PATH_PREFIX   "adrastea/"
 #define WCN6450_PATH_PREFIX    "wcn6450/"
 #define WCN7750_PATH_PREFIX    "wcn7750/"
-#define ICNSS_MAX_FILE_NAME      35
+#define ICNSS_MAX_FILE_NAME      45
 #define ICNSS_PCI_EP_WAKE_OFFSET 4
 #define ICNSS_DISABLE_M3_SSR 0
 #define ICNSS_ENABLE_M3_SSR 1
 #define WLAN_RF_SLATE 0
 #define WLAN_RF_APACHE 1
+#define ICNSS_RAMDUMP_MAGIC		0x574C414E
+#define ICNSS_RAMDUMP_VERSION		0
 
 extern uint64_t dynamic_feature_mask;
 
@@ -440,6 +442,20 @@ enum icnss_db_msg {
 	DB_MSG_SMMU_FAULT,
 };
 
+struct icnss_dump_entry {
+	int type;
+	u32 entry_start;
+	u32 entry_num;
+};
+
+struct cnss_host_dump_meta_info {
+	u32 magic;
+	u32 version;
+	u32 chipset;
+	u32 total_entries;
+	struct icnss_dump_entry entry[CNSS_HOST_DUMP_TYPE_MAX];
+};
+
 struct icnss_priv {
 	uint32_t magic;
 	struct platform_device *pdev;
@@ -508,6 +524,7 @@ struct icnss_priv {
 	void *modem_notify_handler;
 	void *wpss_notify_handler;
 	void *wpss_early_notify_handler;
+	bool notif_crashed;
 	struct notifier_block modem_ssr_nb;
 	struct notifier_block wpss_ssr_nb;
 	struct notifier_block wpss_early_ssr_nb;
@@ -548,6 +565,9 @@ struct icnss_priv {
 	bool fw_aux_uc_support;
 	void *get_info_cb_ctx;
 	int (*get_info_cb)(void *ctx, void *event, int event_len);
+	void *get_driver_async_data_ctx;
+	int (*get_driver_async_data_cb)(void *ctx, uint16_t type, void *event,
+					int event_len);
 	atomic_t soc_wake_ref_count;
 	phys_addr_t hang_event_data_pa;
 	void __iomem *hang_event_data_va;

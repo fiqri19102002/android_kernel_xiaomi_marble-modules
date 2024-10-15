@@ -55,6 +55,7 @@
 #define WLAN_WD_TIMEOUT_MS		60000
 #define WLAN_COLD_BOOT_CAL_TIMEOUT	60000
 #define WLAN_MISSION_MODE_TIMEOUT	30000
+#define WLAN_FW_LOAD_TIMEOUT_MS		65000
 #define TIME_CLOCK_FREQ_HZ		19200000
 #define CNSS_RAMDUMP_MAGIC		0x574C414E
 #define CNSS_RAMDUMP_VERSION		0
@@ -74,6 +75,7 @@
 
 #define POWER_ON_RETRY_DELAY_MS         500
 #define WLFW_MAX_HANG_EVENT_DATA_SIZE   384
+#define CNSS_MBOX_MSG_MAX_LEN           64
 
 #define CNSS_EVENT_SYNC   BIT(0)
 #define CNSS_EVENT_UNINTERRUPTIBLE BIT(1)
@@ -330,6 +332,7 @@ enum cnss_driver_event_type {
 	CNSS_DRIVER_EVENT_FW_MEM_FILE_SAVE,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_FREE,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA,
+	CNSS_DRIVER_EVENT_RESUME_POST_SOL,
 	CNSS_DRIVER_EVENT_MAX,
 };
 
@@ -489,6 +492,7 @@ enum cnss_timeout_type {
 	CNSS_TIMEOUT_RDDM,
 	CNSS_TIMEOUT_RECOVERY,
 	CNSS_TIMEOUT_DAEMON_CONNECTION,
+	CNSS_TIMEOUT_FW_LOAD,
 };
 
 struct cnss_sol_gpio {
@@ -658,6 +662,7 @@ struct cnss_plat_data {
 	u32 cpumask_for_rx_intrs;
 	u32 cpumask_for_tx_comp_intrs;
 	bool ipa_shared_cb_enable;
+	struct task_struct *cnss_event_work_task;
 };
 
 #if IS_ENABLED(CONFIG_ARCH_QCOM)
@@ -751,6 +756,9 @@ int cnss_aop_send_msg(struct cnss_plat_data *plat_priv, char *msg);
 void cnss_power_misc_params_init(struct cnss_plat_data *plat_priv);
 int cnss_aop_ol_cpr_cfg_setup(struct cnss_plat_data *plat_priv,
 			      struct wlfw_pmu_cfg_v01 *fw_pmu_cfg);
+int cnss_request_firmware_update_timer(struct cnss_plat_data *plat_priv,
+				       const struct firmware **fw_entry,
+				       const char *filename);
 int cnss_request_firmware_direct(struct cnss_plat_data *plat_priv,
 				 const struct firmware **fw_entry,
 				 const char *filename);

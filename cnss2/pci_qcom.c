@@ -16,25 +16,6 @@ static struct cnss_msi_config msi_config = {
 	},
 };
 
-#ifdef CONFIG_ONE_MSI_VECTOR
-/**
- * All the user share the same vector and msi data
- * For MHI user, we need pass IRQ array information to MHI component
- * MHI_IRQ_NUMBER is defined to specify this MHI IRQ array size
- */
-#define MHI_IRQ_NUMBER 3
-static struct cnss_msi_config msi_config_one_msi = {
-	.total_vectors = 1,
-	.total_users = 4,
-	.users = (struct cnss_msi_user[]) {
-		{ .name = "MHI", .num_vectors = 1, .base_vector = 0 },
-		{ .name = "CE", .num_vectors = 1, .base_vector = 0 },
-		{ .name = "WAKE", .num_vectors = 1, .base_vector = 0 },
-		{ .name = "DP", .num_vectors = 1, .base_vector = 0 },
-	},
-};
-#endif
-
 int _cnss_pci_enumerate(struct cnss_plat_data *plat_priv, u32 rc_num)
 {
 	return msm_pcie_enumerate(rc_num);
@@ -49,10 +30,17 @@ int cnss_pci_assert_perst(struct cnss_pci_data *pci_priv)
 				   PM_OPTIONS_DEFAULT);
 }
 
+#ifdef CNSS2_FMD_FEATURE_ENABLE
 int cnss_pci_fmd_enable(struct cnss_pci_data *pci_priv)
 {
 	return msm_pcie_fmd_enable(pci_priv->pci_dev);
 }
+#else
+int cnss_pci_fmd_enable(struct cnss_pci_data *pci_priv)
+{
+	return -EOPNOTSUPP;
+}
+#endif
 
 int cnss_pci_disable_pc(struct cnss_pci_data *pci_priv, bool vote)
 {
@@ -504,59 +492,8 @@ int cnss_pci_get_msi_assignment(struct cnss_pci_data *pci_priv)
 	return 0;
 }
 
-#ifdef CONFIG_ONE_MSI_VECTOR
-int cnss_pci_get_one_msi_assignment(struct cnss_pci_data *pci_priv)
-{
-	pci_priv->msi_config = &msi_config_one_msi;
-
-	return 0;
-}
-
-bool cnss_pci_fallback_one_msi(struct cnss_pci_data *pci_priv,
-			       int *num_vectors)
-{
-	struct pci_dev *pci_dev = pci_priv->pci_dev;
-	struct cnss_msi_config *msi_config;
-
-	cnss_pci_get_one_msi_assignment(pci_priv);
-	msi_config = pci_priv->msi_config;
-	if (!msi_config) {
-		cnss_pr_err("one msi_config is NULL!\n");
-		return false;
-	}
-	*num_vectors = pci_alloc_irq_vectors(pci_dev,
-					     msi_config->total_vectors,
-					     msi_config->total_vectors,
-					     PCI_IRQ_MSI);
-	if (*num_vectors < 0) {
-		cnss_pr_err("Failed to get one MSI vector!\n");
-		return false;
-	}
-	cnss_pr_dbg("request MSI one vector\n");
-
-	return true;
-}
-
-bool cnss_pci_is_one_msi(struct cnss_pci_data *pci_priv)
-{
-	return pci_priv && pci_priv->msi_config &&
-	       (pci_priv->msi_config->total_vectors == 1);
-}
-
-int cnss_pci_get_one_msi_mhi_irq_array_size(struct cnss_pci_data *pci_priv)
-{
-	return MHI_IRQ_NUMBER;
-}
-
-bool cnss_pci_is_force_one_msi(struct cnss_pci_data *pci_priv)
-{
-	struct cnss_plat_data *plat_priv = pci_priv->plat_priv;
-
-	return test_bit(FORCE_ONE_MSI, &plat_priv->ctrl_params.quirks);
-}
-#endif
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)) && \
+    (LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0))
 static int
 cnss_pci_smmu_dev_fault_handler(struct iommu_fault *fault,  void *data)
 {
@@ -587,7 +524,37 @@ void cnss_register_iommu_fault_handler(struct cnss_pci_data *pci_priv)
 					    cnss_pci_smmu_dev_fault_handler,
 					    pci_priv);
 }
+#else
+static int cnss_pci_smmu_fault_handler(struct iommu_domain *domain,
+				       struct device *dev, unsigned long iova,
+				       int flags, void *handler_token)
+{
+	struct cnss_pci_data *pci_priv = handler_token;
 
+	cnss_fatal_err("SMMU fault happened with IOVA 0x%lx\n", iova);
+
+	if (!pci_priv) {
+		cnss_pr_err("pci_priv is NULL\n");
+		return -ENODEV;
+	}
+
+	pci_priv->is_smmu_fault = true;
+	cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
+	cnss_force_fw_assert(&pci_priv->pci_dev->dev);
+
+	/* IOMMU driver requires -ENOSYS to print debug info. */
+	return -ENOSYS;
+}
+
+static
+void cnss_register_iommu_fault_handler(struct cnss_pci_data *pci_priv)
+{
+	iommu_set_fault_handler(pci_priv->iommu_domain,
+				cnss_pci_smmu_fault_handler, pci_priv);
+}
+#endif
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0))
 int cnss_pci_get_iommu_addr(struct cnss_pci_data *pci_priv,
 			    struct device_node *iommu_group_node)
 {
@@ -641,34 +608,6 @@ int cnss_pci_get_iommu_addr(struct cnss_pci_data *pci_priv,
 		0 : -EINVAL;
 }
 #else
-static int cnss_pci_smmu_fault_handler(struct iommu_domain *domain,
-				       struct device *dev, unsigned long iova,
-				       int flags, void *handler_token)
-{
-	struct cnss_pci_data *pci_priv = handler_token;
-
-	cnss_fatal_err("SMMU fault happened with IOVA 0x%lx\n", iova);
-
-	if (!pci_priv) {
-		cnss_pr_err("pci_priv is NULL\n");
-		return -ENODEV;
-	}
-
-	pci_priv->is_smmu_fault = true;
-	cnss_pci_update_status(pci_priv, CNSS_FW_DOWN);
-	cnss_force_fw_assert(&pci_priv->pci_dev->dev);
-
-	/* IOMMU driver requires -ENOSYS to print debug info. */
-	return -ENOSYS;
-}
-
-static
-void cnss_register_iommu_fault_handler(struct cnss_pci_data *pci_priv)
-{
-	iommu_set_fault_handler(pci_priv->iommu_domain,
-				cnss_pci_smmu_fault_handler, pci_priv);
-}
-
 int cnss_pci_get_iommu_addr(struct cnss_pci_data *pci_priv,
 			    struct device_node *iommu_group_node)
 {

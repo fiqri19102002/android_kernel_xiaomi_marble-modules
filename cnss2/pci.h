@@ -172,6 +172,7 @@ struct cnss_pci_data {
 	u32 remap_window;
 	struct completion wake_event_complete;
 	struct timer_list dev_rddm_timer;
+	atomic_t rddm_timeout_cnt;
 	struct timer_list boot_debug_timer;
 	struct delayed_work time_sync_work;
 	u8 disable_pc;
@@ -249,6 +250,7 @@ static inline int cnss_pci_get_drv_connected(void *bus_priv)
 
 void cnss_mhi_controller_set_base(struct cnss_pci_data *pci_priv,
 				  phys_addr_t base);
+int cnss_pci_recover_link_post_sol(struct cnss_pci_data *pci_priv);
 int cnss_pci_check_link_status(struct cnss_pci_data *pci_priv);
 int cnss_suspend_pci_link(struct cnss_pci_data *pci_priv);
 int cnss_resume_pci_link(struct cnss_pci_data *pci_priv);

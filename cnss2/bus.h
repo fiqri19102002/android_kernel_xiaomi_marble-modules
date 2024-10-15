@@ -61,6 +61,7 @@ int cnss_bus_is_device_down(struct cnss_plat_data *plat_priv);
 int cnss_bus_shutdown_cleanup(struct cnss_plat_data *plat_priv);
 int cnss_bus_check_link_status(struct cnss_plat_data *plat_priv);
 int cnss_bus_recover_link_down(struct cnss_plat_data *plat_priv);
+int cnss_bus_recover_link_post_sol(struct cnss_plat_data *plat_priv);
 int cnss_bus_debug_reg_read(struct cnss_plat_data *plat_priv, u32 offset,
 			    u32 *val, bool raw_access);
 int cnss_bus_debug_reg_write(struct cnss_plat_data *plat_priv, u32 offset,

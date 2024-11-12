@@ -276,6 +276,8 @@ struct fts_ts_data {
 	int point_num;
 	struct regulator *vdd;
 	struct regulator *vcc_i2c;
+	bool qts_en;	/* indicate whether qts is enabled or not */
+	struct mutex tui_transition_lock;	/* mutex for trusted input operation */
 #if FTS_PINCTRL_EN
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_active;

@@ -9,3 +9,6 @@ define_sch("sun", "perf")
 
 define_sch("parrot", "consolidate")
 define_sch("parrot", "perf")
+
+define_sch("tuna", "consolidate")
+define_sch("tuna", "perf")

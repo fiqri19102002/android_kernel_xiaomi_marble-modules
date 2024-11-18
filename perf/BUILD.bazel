@@ -9,3 +9,6 @@ define_perf("sun", "perf")
 
 define_perf("parrot", "consolidate")
 define_perf("parrot", "perf")
+
+define_perf("tuna", "consolidate")
+define_perf("tuna", "perf")

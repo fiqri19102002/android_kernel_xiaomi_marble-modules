@@ -9,3 +9,6 @@ define_offload("sun", "perf")
 
 define_offload("parrot", "consolidate")
 define_offload("parrot", "perf")
+
+define_offload("tuna", "consolidate")
+define_offload("tuna", "perf")

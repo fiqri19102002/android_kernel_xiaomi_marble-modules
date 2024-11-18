@@ -5,6 +5,7 @@ ifneq ($(TARGET_BOARD_PLATFORM),qssi)
 RMNET_PERF_DLKM_PLATFORMS_LIST := pineapple
 RMNET_PERF_DLKM_PLATFORMS_LIST += sun
 RMNET_PERF_DLKM_PLATFORMS_LIST += parrot
+RMNET_PERF_DLKM_PLATFORMS_LIST += tuna
 
 ifeq ($(call is-board-platform-in-list, $(RMNET_PERF_DLKM_PLATFORMS_LIST)),true)
 LOCAL_PATH := $(call my-dir)

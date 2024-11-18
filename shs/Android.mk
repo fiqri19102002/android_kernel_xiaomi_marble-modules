@@ -3,6 +3,7 @@ ifneq ($(TARGET_BOARD_PLATFORM),qssi)
 RMNET_SHS_DLKM_PLATFORMS_LIST := pineapple
 RMNET_SHS_DLKM_PLATFORMS_LIST += sun
 RMNET_SHS_DLKM_PLATFORMS_LIST += parrot
+RMNET_SHS_DLKM_PLATFORMS_LIST += tuna
 
 ifeq ($(call is-board-platform-in-list, $(RMNET_SHS_DLKM_PLATFORMS_LIST)),true)
 #Make file to create RMNET_SHS DLKM

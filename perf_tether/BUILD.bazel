@@ -9,3 +9,6 @@ define_perf_tether("sun", "perf")
 
 define_perf_tether("parrot", "consolidate")
 define_perf_tether("parrot", "perf")
+
+define_perf_tether("tuna", "consolidate")
+define_perf_tether("tuna", "perf")

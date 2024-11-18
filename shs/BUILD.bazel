@@ -8,3 +8,6 @@ define_shs("sun", "perf")
 
 define_shs("parrot", "consolidate")
 define_shs("parrot", "perf")
+
+define_shs("tuna", "consolidate")
+define_shs("tuna", "perf")

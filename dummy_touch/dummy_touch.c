@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
 #include <linux/input.h>
 #include <linux/platform_device.h>
 #include <linux/mod_devicetable.h>
+#include <linux/version.h>
 
 MODULE_DESCRIPTION("QTI dummy touchscreen driver");
 MODULE_LICENSE("GPL v2");
@@ -45,7 +46,11 @@ static int dummy_touch_probe(struct platform_device *device)
 	return 0;
 }
 
+#if (KERNEL_VERSION(6, 10, 0) <= LINUX_VERSION_CODE)
+static void dummy_touch_remove(struct platform_device *device)
+#else
 static int dummy_touch_remove(struct platform_device *device)
+#endif
 {
 	struct input_dev *touch_dev = NULL;
 
@@ -53,7 +58,9 @@ static int dummy_touch_remove(struct platform_device *device)
 	if (touch_dev)
 		input_free_device(touch_dev);
 
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 	return 0;
+#endif
 }
 
 static const struct of_device_id  dummy_touch_id[] = {

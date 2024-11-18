@@ -2572,7 +2572,7 @@ skip_to_power_gpio_setup:
 		mutex_init(&core_data->tui_transition_lock);
 		goodix_ts_fill_qts_vendor_data(&qts_vendor_data, core_data);
 
-		ret = qts_client_register(qts_vendor_data);
+		ret = qts_client_register(&qts_vendor_data);
 		if (ret) {
 			pr_err("qts client register failed, rc %d\n", ret);
 			goto err_out;
@@ -2606,7 +2606,11 @@ err_out:
 	return ret;
 }
 
+#if (KERNEL_VERSION(6, 10, 0) <= LINUX_VERSION_CODE)
+static void goodix_ts_remove(struct platform_device *pdev)
+#else
 static int goodix_ts_remove(struct platform_device *pdev)
+#endif
 {
 	struct goodix_ts_core *core_data = platform_get_drvdata(pdev);
 	struct goodix_ts_hw_ops *hw_ops = core_data->hw_ops;
@@ -2641,7 +2645,9 @@ static int goodix_ts_remove(struct platform_device *pdev)
 		goodix_ts_power_off(core_data);
 	}
 
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 	return 0;
+#endif
 }
 
 #if defined(CONFIG_PM) && !defined(CONFIG_DRM)

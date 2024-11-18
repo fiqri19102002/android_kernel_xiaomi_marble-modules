@@ -2727,8 +2727,10 @@ static int fts_ts_probe_delayed(struct fts_ts_data *fts_data)
 		goto err_irq_req;
 	}
 
+#ifdef CONFIG_FTS_TRUSTED_TOUCH
 #ifdef CONFIG_ARCH_QTI_VM
 //tvm_setup:
+#endif
 #endif
 	ret = fts_irq_registration(fts_data);
 	if (ret) {

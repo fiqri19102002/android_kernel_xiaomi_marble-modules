@@ -1330,6 +1330,7 @@ static void qts_trusted_touch_init(struct qts_data *qts_data)
 static bool qts_ts_is_primary(struct kobject *kobj)
 {
 	char *path = NULL;
+	bool is_primary;
 
 	if (!kobj)
 		return true;
@@ -1337,9 +1338,13 @@ static bool qts_ts_is_primary(struct kobject *kobj)
 	path = kobject_get_path(kobj, GFP_KERNEL);
 
 	if (strstr(path, "primary"))
-		return true;
+		is_primary = true;
 	else
-		return false;
+		is_primary = false;
+
+	kfree(path);
+
+	return is_primary;
 }
 
 static void qts_adjust_irq_flags(u32 in_irq_flag, u32 *out_irq_flag,
@@ -1761,7 +1766,7 @@ static void qts_ts_register_for_panel_events(struct qts_data *qts_data)
 	qts_data->notifier_cookie = cookie;
 }
 
-int qts_client_register(struct qts_vendor_data qts_vendor_data)
+int qts_client_register(struct qts_vendor_data *qts_vendor_data)
 {
 	struct qts_data *qts_data;
 	struct device_node *dp;
@@ -1784,10 +1789,10 @@ int qts_client_register(struct qts_vendor_data qts_vendor_data)
 
 	mutex_lock(&qts_data_entries->qts_data_entries_lock);
 
-	if (qts_vendor_data.bus_type == QTS_BUS_TYPE_I2C)
-		dp = qts_vendor_data.client->dev.of_node;
+	if (qts_vendor_data->bus_type == QTS_BUS_TYPE_I2C)
+		dp = qts_vendor_data->client->dev.of_node;
 	else
-		dp = qts_vendor_data.spi->dev.of_node;
+		dp = qts_vendor_data->spi->dev.of_node;
 
 	rc = qts_ts_check_dt(dp);
 	if (rc) {
@@ -1796,26 +1801,26 @@ int qts_client_register(struct qts_vendor_data qts_vendor_data)
 	}
 
 	pr_debug("QTS client register starts\n");
-	qts_data = &qts_data_entries->info[qts_vendor_data.client_type];
+	qts_data = &qts_data_entries->info[qts_vendor_data->client_type];
 
-	qts_data->client = qts_vendor_data.client;
-	qts_data->spi = qts_vendor_data.spi;
+	qts_data->client = qts_vendor_data->client;
+	qts_data->spi = qts_vendor_data->spi;
 
-	if (qts_vendor_data.bus_type == QTS_BUS_TYPE_I2C)
+	if (qts_vendor_data->bus_type == QTS_BUS_TYPE_I2C)
 		qts_data->dev = &qts_data->client->dev;
 	else
 		qts_data->dev = &qts_data->spi->dev;
 
-	qts_data->bus_type = qts_vendor_data.bus_type;
-	qts_data->client_type = qts_vendor_data.client_type;
+	qts_data->bus_type = qts_vendor_data->bus_type;
+	qts_data->client_type = qts_vendor_data->client_type;
 	qts_data->dp = dp;
-	qts_data->vendor_data = qts_vendor_data.vendor_data;
+	qts_data->vendor_data = qts_vendor_data->vendor_data;
 	qts_data->panel = active_panel;
-	qts_data->vendor_ops = qts_vendor_data.qts_vendor_ops;
-	qts_data->schedule_suspend = qts_vendor_data.schedule_suspend;
-	qts_data->schedule_resume = qts_vendor_data.schedule_resume;
+	qts_data->vendor_ops = qts_vendor_data->qts_vendor_ops;
+	qts_data->schedule_suspend = qts_vendor_data->schedule_suspend;
+	qts_data->schedule_resume = qts_vendor_data->schedule_resume;
 
-	qts_adjust_irq_flags(qts_vendor_data.irq_gpio_flags,
+	qts_adjust_irq_flags(qts_vendor_data->irq_gpio_flags,
 		&qts_data->irq_gpio_flags, &qts_data->irq_accept_flags);
 
 	qts_trusted_touch_init(qts_data);
@@ -1826,6 +1831,7 @@ int qts_client_register(struct qts_vendor_data qts_vendor_data)
 
 	mutex_init(&qts_data->transition_lock);
 	qts_ts_register_for_panel_events(qts_data);
+	qts_vendor_data->notifier_cookie = qts_data->notifier_cookie;
 
 #ifdef CONFIG_ARCH_QTI_VM
 	atomic_set(&qts_data->delayed_tvm_probe_pending, 1);
@@ -1852,6 +1858,32 @@ qts_register_end:
 	return rc;
 }
 EXPORT_SYMBOL(qts_client_register);
+
+void qts_client_unregister(void)
+{
+	struct qts_data *qts_data;
+
+	pr_debug("QTS client unregister\n");
+	if (!qts_data_entries)
+		return;
+
+	if (qts_data_entries->qts_kset) {
+		kset_unregister(qts_data_entries->qts_kset);
+		qts_data_entries->qts_kset = NULL;
+	}
+
+	for (int i = QTS_CLIENT_PRIMARY_TOUCH; i < QTS_CLIENT_MAX; i++) {
+		qts_data = &qts_data_entries->info[i];
+		if (!IS_ERR_OR_NULL(qts_data->notifier_cookie))
+			panel_event_notifier_unregister(qts_data->notifier_cookie);
+		if (qts_data->vm_info) {
+			qts_vm_deinit(qts_data);
+			qts_data->vm_info = NULL;
+		}
+	}
+	kfree(qts_data_entries);
+}
+EXPORT_SYMBOL_GPL(qts_client_unregister);
 
 MODULE_DESCRIPTION("Qualcomm Technologies, Inc. Touchscreen driver");
 MODULE_LICENSE("GPL");

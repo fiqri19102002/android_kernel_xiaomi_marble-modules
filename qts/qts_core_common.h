@@ -37,6 +37,7 @@ struct qts_vendor_data {
 	struct i2c_client *client;
 	struct spi_device *spi;
 	void *vendor_data;
+	void *notifier_cookie;
 	struct qts_vendor_callback_ops qts_vendor_ops;
 	u32 client_type;
 	u32 bus_type;
@@ -45,4 +46,5 @@ struct qts_vendor_data {
 	u32 irq_gpio_flags;
 };
 
-int qts_client_register(struct qts_vendor_data qts_vendor_data);
+int qts_client_register(struct qts_vendor_data *qts_vendor_data);
+void qts_client_unregister(void);

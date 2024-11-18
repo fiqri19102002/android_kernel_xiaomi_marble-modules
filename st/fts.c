@@ -3004,7 +3004,7 @@ skip_to_init_sensing:
 	return error;
 }
 
-#ifndef FW_UPDATE_ON_PROBE
+#if !defined(FW_UPDATE_ON_PROBE) && !defined(CONFIG_ARCH_QTI_VM)
 /**
   *	Function called by the delayed workthread executed after the probe in
   * order to perform the fw update flow
@@ -4448,7 +4448,7 @@ skip_to_power_gpio_setup:
 		mutex_init(&info->tui_transition_lock);
 		st_ts_fill_qts_vendor_data(&qts_vendor_data, info);
 
-		retval = qts_client_register(qts_vendor_data);
+		retval = qts_client_register(&qts_vendor_data);
 		if (retval) {
 			pr_err("qts client register failed, rc %d\n", retval);
 			goto ProbeErrorExit_4;
@@ -4521,7 +4521,7 @@ skip_to_power_gpio_setup:
 skip_to_fw_update:
 #endif
 
-#if defined(FW_UPDATE_ON_PROBE) && defined(FW_H_FILE)
+#ifdef CONFIG_ARCH_QTI_VM
 	logError(1, "%s FW Update and Sensing Initialization:\n", tag);
 	retval = fts_fw_update(info);
 	if (retval) {
@@ -4553,7 +4553,7 @@ skip_to_fw_update:
 		goto ProbeErrorExit_6;
 	}
 
-#ifndef FW_UPDATE_ON_PROBE
+#ifndef CONFIG_ARCH_QTI_VM
 	queue_delayed_work(info->fwu_workqueue, &info->fwu_work,
 			   msecs_to_jiffies(EXP_FN_WORK_DELAY_MS));
 #endif
@@ -4581,8 +4581,10 @@ ProbeErrorExit_2:
 
 ProbeErrorExit_1:
 #if defined(CONFIG_DRM)
-	if (info->notifier_cookie)
+	if (!IS_ERR_OR_NULL(info->notifier_cookie))
 		panel_event_notifier_unregister(info->notifier_cookie);
+	if (!IS_ERR_OR_NULL(qts_vendor_data.notifier_cookie))
+		panel_event_notifier_unregister(qts_vendor_data.notifier_cookie);
 #elif IS_ENABLED(CONFIG_FB)
 	fb_unregister_client(&info->fb_notifier);
 #endif
@@ -4714,8 +4716,10 @@ static void st_fts_remove_entry(struct fts_ts_info *info)
 	/* remove interrupt and event handlers */
 	fts_interrupt_uninstall(info);
 
+	qts_client_unregister();
+
 #if defined(CONFIG_DRM)
-	if (info->notifier_cookie)
+	if (!IS_ERR_OR_NULL(info->notifier_cookie))
 		panel_event_notifier_unregister(info->notifier_cookie);
 #elif IS_ENABLED(CONFIG_FB)
 	fb_unregister_client(&info->fb_notifier);

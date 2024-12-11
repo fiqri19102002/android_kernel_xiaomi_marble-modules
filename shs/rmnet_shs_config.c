@@ -59,7 +59,7 @@ DATARMNETf5157a9b85]++;return NOTIFY_DONE;}if(!(strncmp(dev->name,
 DATARMNETd6ee05f1b4(dev);break;case NETDEV_UNREGISTER:DATARMNET2cb9ae589c--;if(!
 DATARMNET2cb9ae589c&&DATARMNETecc0627c70.DATARMNETfc89d842ae){unsigned int 
 DATARMNET9f4bc49c6f;pr_info(
-"\x72\x6d\x6e\x65\x74\x5f\x73\x68\x73\x20\x64\x65\x69\x6e\x69\x74\x20\x25\x73\x20\x67\x6f\x69\x6e\x67\x20\x64\x6f\x77\x6e\x20"
+"\x72\x6d\x6e\x65\x74\x5f\x73\x68\x73\x20\x64\x65\x69\x6e\x69\x74\x20\x25\x73\x20\x67\x6f\x69\x6e\x67\x20\x64\x6f\x77\x6e" "\n"
 ,dev->name);DATARMNET203752febd();DATARMNETa871eeb7e7();
 rmnet_module_hook_unregister_no_sync(&DATARMNETf6217b20b8,(0xd26+209-0xdf6));
 qmi_rmnet_ps_ind_deregister(DATARMNETecc0627c70.port,&DATARMNETecc0627c70.
@@ -73,15 +73,15 @@ DATARMNET9f4bc49c6f);trace_rmnet_shs_high(DATARMNET1790979ccf,
 DATARMNET443dab7031,(0x16e8+787-0xc0c),(0x16e8+787-0xc0c),(0x16e8+787-0xc0c),
 (0x16e8+787-0xc0c),NULL,NULL);}break;case NETDEV_REGISTER:DATARMNET2cb9ae589c++;
 if(DATARMNET2cb9ae589c&&!DATARMNETecc0627c70.DATARMNETfc89d842ae){pr_info(
-"\x72\x6d\x6e\x65\x74\x5f\x73\x68\x73\x20\x69\x6e\x69\x74\x69\x61\x6c\x69\x7a\x69\x6e\x67\x20\x25\x73"
+"\x72\x6d\x6e\x65\x74\x5f\x73\x68\x73\x20\x69\x6e\x69\x74\x69\x61\x6c\x69\x7a\x69\x6e\x67\x20\x25\x73" "\n"
 ,dev->name);priv=netdev_priv(dev);port=rmnet_get_port(priv->real_dev);if(!port){
 pr_err(
-"\x72\x6d\x6e\x65\x74\x5f\x73\x68\x73\x3a\x20\x69\x6e\x76\x61\x6c\x69\x64\x20\x72\x6d\x6e\x65\x74\x5f\x70\x6f\x72\x74"
+"\x72\x6d\x6e\x65\x74\x5f\x73\x68\x73\x3a\x20\x69\x6e\x76\x61\x6c\x69\x64\x20\x72\x6d\x6e\x65\x74\x5f\x70\x6f\x72\x74" "\n"
 );break;}DATARMNET45d8cdb224(priv->real_dev,dev);DATARMNET3ae0d614d6();
 DATARMNETe1f95274f1();}break;case NETDEV_UP:if(!DATARMNETecc0627c70.
 DATARMNET9c869c1ec2&&DATARMNETecc0627c70.DATARMNETfc89d842ae){port=
 DATARMNETecc0627c70.port;if(!port){pr_err(
-"\x72\x6d\x6e\x65\x74\x5f\x73\x68\x73\x3a\x20\x69\x6e\x76\x61\x6c\x69\x64\x20\x72\x6d\x6e\x65\x74\x5f\x63\x66\x67\x5f\x70\x6f\x72\x74"
+"\x72\x6d\x6e\x65\x74\x5f\x73\x68\x73\x3a\x20\x69\x6e\x76\x61\x6c\x69\x64\x20\x72\x6d\x6e\x65\x74\x5f\x63\x66\x67\x5f\x70\x6f\x72\x74" "\n"
 );break;}DATARMNETecc0627c70.DATARMNET08dbb5ab35.priority=RMNET_SHS;
 DATARMNETecc0627c70.DATARMNET6b783c98fe.priority=RMNET_SHS;if(port->data_format&
 RMNET_INGRESS_FORMAT_DL_MARKER_V2){DATARMNETecc0627c70.DATARMNET08dbb5ab35.

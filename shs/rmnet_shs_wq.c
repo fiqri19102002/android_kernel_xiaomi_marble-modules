@@ -842,7 +842,7 @@ DATARMNET3764d083f0);rcu_read_unlock();}void DATARMNETe69c918dc8(struct
 DATARMNET9b44b71ee9*ep){struct rps_map*map;u8 len=(0xd2d+202-0xdf7);if(!ep||!ep
 ->ep){DATARMNET68d84e7b98[DATARMNETb8fe2c0e64]++;return;}rcu_read_lock();if(!ep
 ->ep){pr_info(
-"\x20\x72\x6d\x6e\x65\x74\x5f\x73\x68\x73\x20\x69\x6e\x76\x61\x6c\x69\x64\x20\x73\x74\x61\x74\x65\x20\x25\x70"
+"\x72\x6d\x6e\x65\x74\x5f\x73\x68\x73\x20\x69\x6e\x76\x61\x6c\x69\x64\x20\x73\x74\x61\x74\x65\x20\x25\x70" "\n"
 ,ep->ep);DATARMNET68d84e7b98[DATARMNETb8fe2c0e64]++;return;}map=rcu_dereference(
 ep->ep->_rx->rps_map);ep->DATARMNET9fb369ce5f=(0xd2d+202-0xdf7);if(map!=NULL){
 for(len=(0xd2d+202-0xdf7);len<map->len;len++)ep->DATARMNET9fb369ce5f|=(

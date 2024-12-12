@@ -26,6 +26,30 @@ def define_sun(t,v):
         ],
 )
 
+def define_canoe(t,v):
+    define_target_variant_modules(
+        target = t,
+        variant = v,
+        registry = touch_driver_modules,
+        modules = [
+            "atmel_mxt_ts",
+            "dummy_ts",
+            "goodix_ts",
+            "st_fts",
+            "qts"
+        ],
+        config_options = [
+            "TOUCH_DLKM_ENABLE",
+            "CONFIG_ARCH_CANOE",
+            "CONFIG_MSM_TOUCH",
+            "CONFIG_TOUCHSCREEN_GOODIX_BRL",
+            "CONFIG_TOUCHSCREEN_ATMEL_MXT",
+            "CONFIG_TOUCHSCREEN_ST",
+            "CONFIG_QTS_ENABLE",
+            "CONFIG_TOUCHSCREEN_DUMMY"
+        ],
+)
+
 def define_pineapple(t,v):
     define_target_variant_modules(
         target = t,
@@ -131,5 +155,7 @@ def define_touch_target():
             define_parrot(t, v)
         elif t == "monaco":
             define_monaco(t, v)
+        elif t == "canoe":
+            define_canoe(t, v)
         else:
             define_sun(t, v)

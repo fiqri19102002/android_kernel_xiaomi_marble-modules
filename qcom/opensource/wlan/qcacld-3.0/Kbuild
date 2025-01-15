@@ -46,6 +46,16 @@ ifeq ($(findstring yes, $(found)), yes)
 cppflags-y += -DCFG80211_RU_PUNCT_NOTIFY
 endif
 
+WLAN_PLATFORM_ROOT := $(WLAN_ROOT)/../platform
+
+ifeq ($(CONFIG_ARCH_PARROT), y)
+include \
+	$(WLAN_PLATFORM_ROOT)/cnss2/parrot_gki_defconfig \
+	$(WLAN_PLATFORM_ROOT)/cnss_genl/parrot_gki_defconfig \
+	$(WLAN_PLATFORM_ROOT)/cnss_prealloc/parrot_gki_defconfig \
+	$(WLAN_PLATFORM_ROOT)/cnss_utils/parrot_gki_defconfig
+endif
+
 include $(WLAN_ROOT)/configs/$(CONFIG_QCA_CLD_WLAN_PROFILE)_defconfig
 
 # add configurations in WLAN_CFG_OVERRIDE

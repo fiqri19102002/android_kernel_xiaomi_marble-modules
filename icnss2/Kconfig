@@ -59,3 +59,11 @@ config CNSS2_SMMU_DB_SUPPORT
 	  If enabled, ICNSS platform driver modules would register SMMU fault
 	  handler with IOMMU driver to notify ICNSS driver in IRQ context and
 	  Notify WLAN FW about SMMU fault using doorbell registers.
+
+config CNSS2_SSR_DRIVER_DUMP
+	bool "Enable WLAN HOST SSR dump collection"
+	depends on ICNSS2
+	help
+	  If enabled, ICNSS platform driver modules would collect host ssr dump
+	  from the WLAN HOST driver and sends to dump collection framework for
+	  creating host dump elf file.

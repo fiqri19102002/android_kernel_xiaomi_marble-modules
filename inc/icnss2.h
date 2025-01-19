@@ -216,6 +216,16 @@ extern int icnss_smmu_map(struct device *dev, phys_addr_t paddr,
 			  uint32_t *iova_addr, size_t size);
 extern int icnss_smmu_unmap(struct device *dev,
 			    uint32_t iova_addr, size_t size);
+extern bool icnss_get_audio_shared_iommu_group_cap(struct device *dev);
+extern int icnss_get_direct_link_sid(struct device *dev, uint16_t *sid);
+extern bool icnss_get_fw_direct_link_cap(struct device *dev);
+extern bool icnss_audio_is_direct_link_supported(struct device *dev);
+extern int icnss_audio_smmu_map(struct device *dev, phys_addr_t paddr,
+				dma_addr_t iova, size_t size);
+extern void icnss_audio_smmu_unmap(struct device *dev, dma_addr_t iova,
+				   size_t size);
+extern int icnss_get_fw_lpass_shared_mem(struct device *dev, dma_addr_t *iova,
+					 size_t *size);
 extern unsigned int icnss_socinfo_get_serial_number(struct device *dev);
 extern bool icnss_is_qmi_disable(struct device *dev);
 extern bool icnss_is_fw_ready(void);
@@ -260,4 +270,5 @@ extern int icnss_register_driver_async_data_cb(struct device *dev, void *cb_ctx,
 					       int (*cb)(void *ctx,
 					       uint16_t type, void *event,
 					       int event_len));
+extern struct kobject *icnss_get_wifi_kobj(struct device *dev);
 #endif /* _ICNSS_WLAN_H_ */

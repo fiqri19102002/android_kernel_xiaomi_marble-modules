@@ -628,9 +628,10 @@ static int __init cnss_utils_init(void)
 {
 	struct cnss_utils_priv *priv = NULL;
 
-	if (!cnss_utils_is_valid_dt_node_found())
+	if (!cnss_utils_is_valid_dt_node_found()) {
+		pr_err("device node not found!\n");
 		return -ENODEV;
-
+	}
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;

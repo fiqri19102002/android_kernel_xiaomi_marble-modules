@@ -21,12 +21,14 @@ static struct icnss_vreg_cfg icnss_wcn6750_vreg_list[] = {
 	{"vdd-cx-mx", 824000, 952000, 0, 0, 0, false, true},
 	{"vdd-1.8-xo", 1872000, 1872000, 0, 0, 0, false, true},
 	{"vdd-1.3-rfa", 1256000, 1352000, 0, 0, 0, false, true},
+	{"vdd-ipa-2p2", 2200000, 2200000, 0, 0, 0, false, true},
 };
 
 static struct icnss_vreg_cfg icnss_wcn7750_vreg_list[] = {
 	{"vdd-cx-mx", 824000, 952000, 0, 0, 0, false, true},
 	{"vdd-1.8-xo", 1872000, 1872000, 0, 0, 0, false, true},
 	{"vdd-1.3-rfa", 1256000, 1352000, 0, 0, 0, false, true},
+	{"vdd-1.8-io", 1800000, 1800000, 0, 0, 0, false, true},
 };
 
 static struct icnss_vreg_cfg icnss_adrestea_vreg_list[] = {
@@ -46,10 +48,13 @@ static struct icnss_battery_level icnss_battery_level[] = {
 };
 
 static struct icnss_vreg_cfg icnss_wcn6450_vreg_list[] = {
-	{"vdd-cx-mx", 824000, 952000, 0, 0, 0, false, true},
-	{"vdd-1.8-xo", 1872000, 1872000, 0, 0, 0, false, true},
-	{"vdd-1.3-rfa", 1256000, 1352000, 0, 0, 0, false, true},
-	{"vdd-aon", 1256000, 1352000, 0, 0, 0, false, true},
+	{"vdd-aon", 920000, 1040000, 0, 0, 0, false, true},
+	{"vdd-1.8-rfa", 1856000, 1908000, 0, 0, 0, false, true},
+	{"vdd-1.2-rfa", 1256000, 1408000, 0, 0, 0, false, true},
+	{"vdd-cx", 620000, 2200000, 0, 0, 0, false, true},
+	{"vdd-1.8-io", 1800000, 1800000, 0, 0, 0, false, true},
+	{"vdd-3p3-2g", 3300000, 3300000, 0, 0, 0, false, true},
+	{"vdd-3p3-5g", 3300000, 3300000, 0, 0, 0, false, true},
 };
 
 static struct icnss_clk_cfg icnss_clk_list[] = {
@@ -337,7 +342,7 @@ static struct icnss_vreg_cfg *get_vreg_list(u32 *vreg_list_size,
 		return icnss_wcn7750_vreg_list;
 
 	default:
-		icnss_pr_err("Unsupported device_id 0x%x\n", device_id);
+		icnss_pr_err("Unsupported device_id 0x%lx\n", device_id);
 		*vreg_list_size = 0;
 		return NULL;
 	}
@@ -898,7 +903,7 @@ int icnss_aop_pdc_reconfig(struct icnss_priv *priv)
 	if (priv->pdc_init_table_len <= 0 || !priv->pdc_init_table)
 		return 0;
 
-	icnss_pr_dbg("Setting PDC defaults for device ID: (0x%x)\n",
+	icnss_pr_dbg("Setting PDC defaults for device ID: (0x%lx)\n",
 		     priv->device_id);
 	for (i = 0; i < priv->pdc_init_table_len; i++) {
 		mbox_msg = (char *)priv->pdc_init_table[i];

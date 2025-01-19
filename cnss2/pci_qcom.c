@@ -30,7 +30,7 @@ int cnss_pci_assert_perst(struct cnss_pci_data *pci_priv)
 				   PM_OPTIONS_DEFAULT);
 }
 
-#ifdef CNSS2_FMD_FEATURE_ENABLE
+#if IS_ENABLED(CONFIG_CNSS2_FMD_FEATURE_ENABLE)
 int cnss_pci_fmd_enable(struct cnss_pci_data *pci_priv)
 {
 	return msm_pcie_fmd_enable(pci_priv->pci_dev);

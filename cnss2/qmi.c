@@ -825,8 +825,6 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 	if (ret)
 		goto err_req_fw;
 
-	mod_timer(&plat_priv->req_firmware_dbg_timer,
-		  jiffies + msecs_to_jiffies(plat_priv->ctrl_params.req_fw_timeout));
 	cnss_pr_dbg("Invoke firmware_request_nowarn for %s\n", filename);
 	if (bdf_type == CNSS_BDF_REGDB)
 		ret = cnss_request_firmware_direct(plat_priv, &fw_entry,
@@ -835,7 +833,6 @@ int cnss_wlfw_bdf_dnld_send_sync(struct cnss_plat_data *plat_priv,
 		ret = cnss_request_firmware_update_timer(plat_priv, &fw_entry, filename);
 
 
-	del_timer(&plat_priv->req_firmware_dbg_timer);
 	if (ret) {
 		cnss_pr_err("Failed to load %s: %s, ret: %d\n",
 			    cnss_bdf_type_to_str(bdf_type), filename, ret);

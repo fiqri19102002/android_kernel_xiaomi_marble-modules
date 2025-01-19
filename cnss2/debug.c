@@ -191,6 +191,9 @@ static int cnss_stats_show_state(struct seq_file *s,
 		case CNSS_SHUTDOWN_DEVICE:
 			seq_puts(s, "SHUTDOWN DEVICE");
 			continue;
+		case CNSS_POWERING_ON:
+			seq_puts(s, "POWERING ON");
+			continue;
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);
@@ -795,8 +798,6 @@ static ssize_t cnss_control_params_debug_write(struct file *fp,
 		plat_priv->ctrl_params.mhi_m2_timeout = val;
 	else if (strcmp(cmd, "qmi_timeout") == 0)
 		plat_priv->ctrl_params.qmi_timeout = val;
-	else if (strcmp(cmd, "req_fw_timeout") == 0)
-		plat_priv->ctrl_params.req_fw_timeout = val;
 	else if (strcmp(cmd, "bdf_type") == 0)
 		plat_priv->ctrl_params.bdf_type = val;
 	else if (strcmp(cmd, "time_sync_period") == 0)
@@ -888,7 +889,6 @@ static int cnss_control_params_debug_show(struct seq_file *s, void *data)
 	seq_puts(s, "quirks: Debug quirks for driver\n");
 	seq_puts(s, "mhi_timeout: Timeout for MHI operation in milliseconds\n");
 	seq_puts(s, "qmi_timeout: Timeout for QMI message in milliseconds\n");
-	seq_puts(s, "req_fw_timeout: Timeout for request FW in milliseconds\n");
 	seq_puts(s, "bdf_type: Type of board data file to be downloaded\n");
 	seq_puts(s, "time_sync_period: Time period to do time sync with device in milliseconds\n");
 
@@ -898,7 +898,6 @@ static int cnss_control_params_debug_show(struct seq_file *s, void *data)
 	seq_printf(s, "mhi_m2_timeout: %u\n",
 		   cnss_priv->ctrl_params.mhi_m2_timeout);
 	seq_printf(s, "qmi_timeout: %u\n", cnss_priv->ctrl_params.qmi_timeout);
-	seq_printf(s, "req_fw_timeout: %u\n", cnss_priv->ctrl_params.req_fw_timeout);
 	seq_printf(s, "bdf_type: %u\n", cnss_priv->ctrl_params.bdf_type);
 	seq_printf(s, "time_sync_period: %u\n",
 		   cnss_priv->ctrl_params.time_sync_period);

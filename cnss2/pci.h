@@ -187,6 +187,7 @@ struct cnss_pci_data {
 	bool drv_supported;
 	bool is_smmu_fault;
 	unsigned long long smmu_fault_timestamp[SMMU_CB_MAX];
+	atomic_t id_mismatch_cnt;
 };
 
 static inline void cnss_set_pci_priv(struct pci_dev *pci_dev, void *data)

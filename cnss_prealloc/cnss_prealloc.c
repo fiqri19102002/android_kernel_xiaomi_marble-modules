@@ -68,6 +68,7 @@ static struct cnss_pool cnss_pools_default[] = {
 	{32 * 1024, 22, "cnss-pool-32k", NULL, NULL, NULL},
 	{64 * 1024, 38, "cnss-pool-64k", NULL, NULL, NULL},
 	{128 * 1024, 10, "cnss-pool-128k", NULL, NULL, NULL},
+	{256 * 1024, 2, "cnss-pool-256k", NULL, NULL, NULL},
 };
 
 static struct cnss_pool cnss_pools_adrastea[] = {
@@ -154,7 +155,7 @@ static int cnss_pool_init(void)
 		}
 
 		cnss_pools[i].table_capacity = cnss_pools[i].min;
-		cnss_pools[i].pool_ptrs = kmalloc(cnss_pools[i].min * sizeof(void *),
+		cnss_pools[i].pool_ptrs = kzalloc(cnss_pools[i].min * sizeof(void *),
 						  GFP_KERNEL);
 
 		if (!cnss_pools[i].pool_ptrs) {

@@ -33,6 +33,7 @@
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0))
 #include <linux/sched/clock.h>
 #endif
+#include <linux/iommu.h>
 
 #define THERMAL_NAME_LENGTH 20
 #define ICNSS_SMEM_VALUE_MASK 0xFFFFFFFF
@@ -49,6 +50,8 @@
 #define WLAN_RF_APACHE 1
 #define ICNSS_RAMDUMP_MAGIC		0x574C414E
 #define ICNSS_RAMDUMP_VERSION		0
+#define ICNSS_FW_LPASS_SHARED_MEM_SIZE  8
+#define MSI_USERS                       2
 
 extern uint64_t dynamic_feature_mask;
 
@@ -384,6 +387,10 @@ struct icnss_msi_user {
 	u32 base_vector;
 };
 
+struct icnss_print_optimize {
+	int msi_log_chk[MSI_USERS];
+};
+
 struct icnss_msi_config {
 	int total_vectors;
 	int total_users;
@@ -629,6 +636,11 @@ struct icnss_priv {
 	const char *wcn_hw_version;
 	u32 cpumask_for_rx_intrs;
 	u32 cpumask_for_tx_comp_intrs;
+	bool fw_direct_link_support;
+	bool is_audio_shared_iommu_group;
+	phys_addr_t fw_lpass_shared_mem_pa;
+	struct iommu_domain *audio_iommu_domain;
+	struct kobject *wifi_kobj;
 };
 
 struct icnss_reg_info {

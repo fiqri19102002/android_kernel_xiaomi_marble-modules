@@ -539,6 +539,9 @@ struct fts_ts_info {
 	struct mutex fts_int;	/* /< mutex to control the access to the
 				 * disable_irq_counter
 				 */
+	struct pinctrl *pinctrl;	/* /< pinctrl for level shifter and touch GPIOs */
+	struct pinctrl_state *pins_active;	/* /< active pinctrl state */
+	struct pinctrl_state *pins_suspend;	/* /< suspend pinctrl state */
 };
 
 enum DUAL_TOUCH_TYPE {

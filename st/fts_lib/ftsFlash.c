@@ -1032,7 +1032,7 @@ int flash_burn(struct fts_ts_info *info, Firmware fw, int force_burn, int keep_c
 
 	if (!force_burn) {
 		for (res = EXTERNAL_RELEASE_INFO_SIZE - 1; res >= 0; res--)
-			if (fw.externalRelease[res] >
+			if (fw.externalRelease[res] >=
 			    info->systemInfo.u8_releaseInfo[res])
 				goto start;
 		logError(1,

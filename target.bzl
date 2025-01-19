@@ -1,6 +1,6 @@
 load(":touch_modules.bzl", "touch_driver_modules")
 load(":touch_modules_build.bzl", "define_target_variant_modules")
-load("//msm-kernel:target_variants.bzl", "get_all_la_variants", "get_all_le_variants")
+load(":target_variants.bzl", "get_all_la_variants", "get_all_le_variants")
 
 def define_sun(t,v):
     define_target_variant_modules(

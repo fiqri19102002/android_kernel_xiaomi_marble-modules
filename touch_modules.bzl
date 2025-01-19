@@ -34,7 +34,8 @@ module_entry(
             "st/fts_lib/ftsTest.c",
             "st/fts_lib/ftsTime.c",
             "st/fts_lib/ftsTool.c"
-    ]
+    ],
+    deps = ["qts"],
 )
 
 #define ddk_module() for goodix_ts
@@ -52,7 +53,8 @@ module_entry(
             "goodix_berlin_driver/goodix_ts_inspect.c",
             "goodix_berlin_driver/goodix_ts_tools.c",
             "goodix_berlin_driver/goodix_ts_utils.c"
-    ]
+    ],
+    deps = ["qts"],
 )
 
 #define ddk_module() for nt36xxx

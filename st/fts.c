@@ -53,6 +53,7 @@
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
+#include <linux/pinctrl/consumer.h>
 
 #if defined(CONFIG_DRM)
 #include <linux/soc/qcom/panel_event_notifier.h>
@@ -4364,9 +4365,60 @@ static int st_ts_set_input_property(struct fts_ts_info *info)
 	return 0;
 }
 
+static int st_ts_pinctrl_init(struct fts_ts_info *info)
+{
+	int retval = 0;
+
+	info->pinctrl = devm_pinctrl_get(info->dev);
+	if (IS_ERR_OR_NULL(info->pinctrl)) {
+		logError(1, "Failed to get pinctrl, please check dts");
+		retval = PTR_ERR(info->pinctrl);
+		goto err_pinctrl_get;
+	}
+
+	info->pins_active = pinctrl_lookup_state(info->pinctrl, "pmx_ts_active");
+	if (IS_ERR_OR_NULL(info->pins_active)) {
+		logError(1, "Pin state[active] not found");
+		retval = PTR_ERR(info->pins_active);
+		goto err_pinctrl_lookup;
+	}
+
+	info->pins_suspend = pinctrl_lookup_state(info->pinctrl, "pmx_ts_suspend");
+	if (IS_ERR_OR_NULL(info->pins_suspend)) {
+		logError(1, "Pin state[suspend] not found");
+		retval = PTR_ERR(info->pins_suspend);
+		goto err_pinctrl_lookup;
+	}
+
+	return 0;
+
+err_pinctrl_lookup:
+	if (info->pinctrl)
+		devm_pinctrl_put(info->pinctrl);
+err_pinctrl_get:
+	info->pinctrl = NULL;
+	info->pins_suspend = NULL;
+	info->pins_active = NULL;
+	return retval;
+}
+
 static int st_ts_set_regulators_gpio(struct fts_ts_info *info)
 {
 	int retval = 0;
+
+	retval = st_ts_pinctrl_init(info);
+	if (retval) {
+		logError(1, "%s ERROR: %s: Failed to init pinctrl\n", tag,
+			 __func__);
+		return retval;
+	}
+
+	retval = pinctrl_select_state(info->pinctrl, info->pins_active);
+	if (retval) {
+		logError(1, "%s ERROR: %s: Failed to set to pins_active state\n", tag,
+			 __func__);
+		return retval;
+	}
 
 	logError(1, "%s SET Regulators:\n", tag);
 	retval = fts_get_reg(info, true);

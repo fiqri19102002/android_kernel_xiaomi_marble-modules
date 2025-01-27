@@ -49,6 +49,8 @@ endif
 WLAN_PLATFORM_ROOT := $(WLAN_ROOT)/../platform
 
 ifeq ($(CONFIG_ARCH_PARROT), y)
+CONFIG_QCA_CLD_WLAN_PROFILE=parrot_gki_$(WLAN_PROFILE)
+
 include \
 	$(WLAN_PLATFORM_ROOT)/cnss2/parrot_gki_defconfig \
 	$(WLAN_PLATFORM_ROOT)/cnss_genl/parrot_gki_defconfig \

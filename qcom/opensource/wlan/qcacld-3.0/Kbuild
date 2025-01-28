@@ -1251,7 +1251,7 @@ FTM_OBJS := $(FTM_DISP_SRC)/wlan_ftm_init_deinit.o \
 	    $(FTM_CORE_SRC)/wlan_ftm_svc.o \
 	    $(TARGET_IF_FTM_SRC)/target_if_ftm.o
 
-ifeq ($(QCA_WIFI_FTM_NL80211), y)
+ifeq ($(CONFIG_QCA_WIFI_FTM_NL80211), y)
 FTM_OBJS += $(OS_IF_FTM_SRC)/wlan_cfg80211_ftm.o
 endif
 
@@ -3391,9 +3391,9 @@ cppflags-$(CONFIG_DEBUG_RX_RING_BUFFER) += -DDEBUG_RX_RING_BUFFER
 
 cppflags-$(CONFIG_DESC_TIMESTAMP_DEBUG_INFO) += -DDESC_TIMESTAMP_DEBUG_INFO
 
-cppflags-$(PANIC_ON_BUG) += -DPANIC_ON_BUG
+cppflags-$(CONFIG_PANIC_ON_BUG) += -DPANIC_ON_BUG
 
-cppflags-$(WLAN_WARN_ON_ASSERT) += -DWLAN_WARN_ON_ASSERT
+cppflags-$(CONFIG_WLAN_WARN_ON_ASSERT) += -DWLAN_WARN_ON_ASSERT
 
 ccflags-$(CONFIG_POWER_MANAGEMENT_OFFLOAD) += -DWLAN_POWER_MANAGEMENT_OFFLOAD
 
@@ -3404,7 +3404,7 @@ cppflags-$(CONFIG_WLAN_LOG_INFO) += -DWLAN_LOG_INFO
 cppflags-$(CONFIG_WLAN_LOG_DEBUG) += -DWLAN_LOG_DEBUG
 cppflags-$(CONFIG_WLAN_LOG_ENTER) += -DWLAN_LOG_ENTER
 cppflags-$(CONFIG_WLAN_LOG_EXIT) += -DWLAN_LOG_EXIT
-cppflags-$(WLAN_OPEN_SOURCE) += -DWLAN_OPEN_SOURCE
+cppflags-$(CONFIG_WLAN_OPEN_SOURCE) += -DWLAN_OPEN_SOURCE
 cppflags-$(CONFIG_FEATURE_STATS_EXT) += -DWLAN_FEATURE_STATS_EXT
 cppflags-$(CONFIG_QCACLD_FEATURE_NAN) += -DWLAN_FEATURE_NAN
 cppflags-$(CONFIG_QCACLD_FEATURE_SON) += -DWLAN_FEATURE_SON
@@ -3446,7 +3446,7 @@ cppflags-$(CONFIG_REMOVE_PKT_LOG) += -DREMOVE_PKT_LOG
 cppflags-$(CONFIG_ATH_11AC_TXCOMPACT) += -DATH_11AC_TXCOMPACT
 
 #ENABLE HTT HTC tx completion
-cppflags-$(ENABLE_CE4_COMP_DISABLE_HTT_HTC_MISC_LIST) += -DENABLE_CE4_COMP_DISABLE_HTT_HTC_MISC_LIST
+cppflags-$(CONFIG_ENABLE_CE4_COMP_DISABLE_HTT_HTC_MISC_LIST) += -DENABLE_CE4_COMP_DISABLE_HTT_HTC_MISC_LIST
 
 #Enable PCI specific APIS (dma, etc)
 cppflags-$(CONFIG_HIF_PCI) += -DHIF_PCI
@@ -4403,20 +4403,9 @@ endif
 # driver attached. Moreover, as the first priority, host driver will only
 # append DYNAMIC_SINGLE_CHIP to the path of firmware/mac/ini file.
 
-ifneq ($(DYNAMIC_SINGLE_CHIP),)
-ccflags-y += -DDYNAMIC_SINGLE_CHIP=\"$(DYNAMIC_SINGLE_CHIP)\"
-ifneq ($(MULTI_IF_NAME),)
-ccflags-y += -DMULTI_IF_NAME=\"$(MULTI_IF_NAME)\"
+ifneq ($(CONFIG_MULTI_IF_NAME),)
+ccflags-y += -DMULTI_IF_NAME=\"$(CONFIG_MULTI_IF_NAME)\"
 endif
-#
-else
-
-ifneq ($(MODNAME), wlan)
-CHIP_NAME ?= $(MODNAME)
-ccflags-y += -DMULTI_IF_NAME=\"$(CHIP_NAME)\"
-endif
-
-endif #DYNAMIC_SINGLE_CHIP
 
 # WLAN_HDD_ADAPTER_MAGIC must be unique for all instances of the driver on the
 # system. If it is not defined, then the host driver will use the first 4
@@ -4434,8 +4423,8 @@ else
 endif
 
 # Android wifi state control interface
-ifneq ($(WLAN_CTRL_NAME),)
-ccflags-y += -DWLAN_CTRL_NAME=\"$(WLAN_CTRL_NAME)\"
+ifneq ($(CONFIG_WLAN_CTRL_NAME),)
+ccflags-y += -DWLAN_CTRL_NAME=\"$(CONFIG_WLAN_CTRL_NAME)\"
 endif
 
 # inject some build related information

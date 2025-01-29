@@ -1,4 +1,5 @@
 ccflags-y += -I$(BT_ROOT)/include
+ccflags-y += -I$(BT_ROOT)/../audio-kernel/include
 ccflags-y += -I$(BT_ROOT)/btfmcodec/include
 #Below src is for BTFM SLAVE CODEC Driver support on LE platform.
 bt_fm_slim-objs := btfm_slim.o btfm_slim_codec.o btfm_slim_slave.o

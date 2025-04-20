@@ -24,7 +24,7 @@
  *
  * THIS SOFTWARE IS SPECIFICALLY DESIGNED FOR EXCLUSIVE USE WITH ST PARTS.
  *
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /*!
@@ -3385,6 +3385,28 @@ static int fts_init_sensing(struct fts_ts_info *info)
 	return error;
 }
 
+static int fts_set_pinctrl_state(struct fts_ts_info *info, bool enable)
+{
+	int ret = 0;
+	struct pinctrl_state *state;
+
+	if (!info->pinctrl && !info->pins_active && !info->pins_suspend)
+		return 0;
+
+	if (enable)
+		state = info->pins_active;
+	else
+		state = info->pins_suspend;
+
+	ret = pinctrl_select_state(info->pinctrl, state);
+	if (ret) {
+		logError(1, "%s ERROR: %s: Failed to set pin state ret=%d\n",
+			tag, __func__, ret);
+	}
+
+	return ret;
+}
+
 /* TODO: change this function according with the needs of customer in terms of
  * feature to enable/disable */
 
@@ -3593,7 +3615,14 @@ static void fts_resume_work(struct work_struct *work)
 
 	info = container_of(work, struct fts_ts_info, resume_work);
 
+	if (info->resume_bit) {
+		pr_info("Already in awake state\n");
+		return;
+	}
+
 	info->resume_bit = 1;
+
+	fts_set_pinctrl_state(info, true);
 
 	fts_enable_reg(info, true);
 
@@ -3618,6 +3647,11 @@ static void fts_suspend_work(struct work_struct *work)
 
 	info = container_of(work, struct fts_ts_info, suspend_work);
 
+	if (!info->resume_bit) {
+		pr_info("Already in suspend state\n");
+		return;
+	}
+
 	info->resume_bit = 0;
 
 	fts_mode_handler(info, 0);
@@ -3629,6 +3663,8 @@ static void fts_suspend_work(struct work_struct *work)
 	fts_disableInterrupt(info);
 
 	fts_enable_reg(info, false);
+
+	fts_set_pinctrl_state(info, false);
 }
 /** @}*/
 
@@ -3959,7 +3995,6 @@ static int parse_dt(struct device *dev, struct fts_hw_platform_data *bdata)
 	const char *name;
 	struct device_node *np = dev->of_node;
 
-#ifndef CONFIG_ARCH_QTI_VM
 	bdata->irq_gpio = of_get_named_gpio(np, "st,irq-gpio", 0);
 
 	logError(0, "%s irq_gpio = %d\n", tag, bdata->irq_gpio);
@@ -3969,7 +4004,6 @@ static int parse_dt(struct device *dev, struct fts_hw_platform_data *bdata)
 		logError(0, "%s reset_gpio =%d\n", tag, bdata->reset_gpio);
 	} else
 		bdata->reset_gpio = GPIO_NOT_DEFINED;
-#endif
 
 	retval = of_property_read_u32(np, "st,irq-flags", &bdata->irq_flags);
 	if (retval) {
@@ -4257,6 +4291,8 @@ static void st_ts_fill_qts_vendor_data(struct qts_vendor_data *qts_vendor_data,
 	qts_vendor_data->schedule_suspend = false;
 	qts_vendor_data->schedule_resume = false;
 	qts_vendor_data->irq_gpio_flags = info->board->irq_flags;
+	qts_vendor_data->irq_gpio = info->board->irq_gpio;
+	qts_vendor_data->reset_gpio = info->board->reset_gpio;
 	qts_vendor_data->qts_vendor_ops.suspend = st_ts_suspend_helper;
 	qts_vendor_data->qts_vendor_ops.resume = st_ts_resume_helper;
 	qts_vendor_data->qts_vendor_ops.enable_touch_irq = st_ts_enable_touch_irq;
@@ -4413,12 +4449,9 @@ static int st_ts_set_regulators_gpio(struct fts_ts_info *info)
 		return retval;
 	}
 
-	retval = pinctrl_select_state(info->pinctrl, info->pins_active);
-	if (retval) {
-		logError(1, "%s ERROR: %s: Failed to set to pins_active state\n", tag,
-			 __func__);
+	retval = fts_set_pinctrl_state(info, true);
+	if (retval)
 		return retval;
-	}
 
 	logError(1, "%s SET Regulators:\n", tag);
 	retval = fts_get_reg(info, true);
@@ -4624,6 +4657,7 @@ ProbeErrorExit_4:
 	wakeup_source_unregister(info->wakesrc);
 #ifndef CONFIG_ARCH_QTI_VM
 	fts_enable_reg(info, false);
+	fts_gpio_setup(info->board->reset_gpio, false, 0, 0);
 #endif
 
 ProbeErrorExit_2:

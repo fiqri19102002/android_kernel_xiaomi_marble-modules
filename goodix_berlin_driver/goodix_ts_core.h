@@ -1,6 +1,7 @@
 /*
  * Goodix Touchscreen Driver
  * Copyright (C) 2020 - 2021 Goodix, Inc.
+ * Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +22,12 @@
 #include <linux/init.h>
 #include <linux/firmware.h>
 #include <linux/slab.h>
+#include <linux/version.h>
+#if (KERNEL_VERSION(6, 12, 0) > LINUX_VERSION_CODE)
 #include <asm/unaligned.h>
+#else
+#include <linux/unaligned.h>
+#endif
 #include <linux/vmalloc.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>

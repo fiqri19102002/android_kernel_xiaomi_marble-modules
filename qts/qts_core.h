@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #include <linux/soc/qcom/panel_event_notifier.h>
 #include <linux/export.h>
@@ -73,10 +73,8 @@ enum trusted_touch_tvm_states {
 
 #define TRUSTED_TOUCH_MEM_LABEL 0x7
 
-#define TOUCH_RESET_GPIO_BASE 0xF1A1000
 #define TOUCH_RESET_GPIO_SIZE 0x1000
 #define TOUCH_RESET_GPIO_OFFSET 0x4
-#define TOUCH_INTR_GPIO_BASE 0xF1A2000
 #define TOUCH_INTR_GPIO_SIZE 0x1000
 #define TOUCH_INTR_GPIO_OFFSET 0x8
 

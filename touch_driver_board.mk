@@ -2,8 +2,8 @@ TOUCH_DLKM_ENABLE := true
 ifeq ($(TARGET_KERNEL_DLKM_DISABLE), true)
         ifeq ($(TARGET_KERNEL_DLKM_TOUCH_OVERRIDE), false)
                 TOUCH_DLKM_ENABLE := false
-                ifneq ($(TARGET_BOARD_PLATFORM), monaco)
-                BOARD_VENDOR_KERNEL_MODULES += $(KERNEL_MODULES_OUT)/dummy_ts.ko
+                ifneq ($(filter $(TARGET_BOARD_PLATFORM), monaco vienna),$(TARGET_BOARD_PLATFORM))
+                        BOARD_VENDOR_KERNEL_MODULES += $(KERNEL_MODULES_OUT)/dummy_ts.ko
                 endif
         endif
 endif
@@ -22,6 +22,7 @@ ifeq ($(TOUCH_DLKM_ENABLE),  true)
                                 BOARD_VENDOR_KERNEL_MODULES += $(KERNEL_MODULES_OUT)/goodix_ts.ko \
                                         $(KERNEL_MODULES_OUT)/atmel_mxt_ts.ko \
                                         $(KERNEL_MODULES_OUT)/st_fts.ko \
+					$(KERNEL_MODULES_OUT)/focaltech_fts.ko \
                                         $(KERNEL_MODULES_OUT)/qts.ko
                         else ifeq ($(TARGET_BOARD_PLATFORM), canoe)
                                 BOARD_VENDOR_KERNEL_MODULES += $(KERNEL_MODULES_OUT)/goodix_ts.ko \

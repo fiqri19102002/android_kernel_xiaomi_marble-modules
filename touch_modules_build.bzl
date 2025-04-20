@@ -41,7 +41,7 @@ def touch_module_entry(hdrs = []):
         hdrs = hdrs,
     )
 
-def define_target_variant_modules(target, variant, registry, modules, config_options = []):
+def define_target_variant_modules(target, variant, registry, modules, config_options = [], vm_target = False):
     kernel_build = "{}_{}".format(target, variant)
     kernel_build_label = select({
         "//build/kernel/kleaf:socrepo_true": "//soc-repo:{}_base_kernel".format(kernel_build),
@@ -55,13 +55,19 @@ def define_target_variant_modules(target, variant, registry, modules, config_opt
         "//build/kernel/kleaf:socrepo_true": [
             "//soc-repo:all_headers",
             "//soc-repo:{}/drivers/pinctrl/qcom/pinctrl-msm".format(kernel_build),
-            "//soc-repo:{}/drivers/soc/qcom/panel_event_notifier".format(kernel_build),
             "//soc-repo:{}/drivers/virt/gunyah/gh_mem_notifier".format(kernel_build),
             "//soc-repo:{}/drivers/virt/gunyah/gh_irq_lend".format(kernel_build),
             "//soc-repo:{}/drivers/virt/gunyah/gh_rm_drv".format(kernel_build),
         ],
         "//build/kernel/kleaf:socrepo_false": ["//msm-kernel:all_headers"],
     })
+
+    if not vm_target:
+        deps += select({
+            "//build/kernel/kleaf:socrepo_true": ["//soc-repo:{}/drivers/soc/qcom/panel_event_notifier".format(kernel_build)],
+            "//build/kernel/kleaf:socrepo_false": [],
+        })
+
     all_module_rules = []
 
     for module in modules:
@@ -101,7 +107,3 @@ def define_target_variant_modules(target, variant, registry, modules, config_opt
         mode_overrides = {"**/*": "644"},
         log = "info",
     )
-
-def define_consolidate_gki_modules(target, registry, modules, config_options = []):
-    define_target_variant_modules(target, "gki", registry, modules, config_options)
-    define_target_variant_modules(target, "consolidate", registry, modules, config_options)

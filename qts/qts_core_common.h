@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 enum qts_client {
 	QTS_CLIENT_PRIMARY_TOUCH,
@@ -44,6 +44,8 @@ struct qts_vendor_data {
 	bool schedule_suspend;
 	bool schedule_resume;
 	u32 irq_gpio_flags;
+	u32 irq_gpio;
+	u32 reset_gpio;
 };
 
 int qts_client_register(struct qts_vendor_data *qts_vendor_data);

@@ -6,7 +6,7 @@
  * Copyright (C) 2011-2014 Atmel Corporation
  * Copyright (C) 2012 Google, Inc.
  * Copyright (C) 2016 Zodiac Inflight Innovations
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Author: Joonyoung Shim <jy0922.shim@samsung.com>
  */
@@ -30,7 +30,12 @@
 #include <linux/slab.h>
 #include <linux/gpio/consumer.h>
 #include <linux/property.h>
+#include <linux/version.h>
+#if (KERNEL_VERSION(6, 12, 0) > LINUX_VERSION_CODE)
 #include <asm/unaligned.h>
+#else
+#include <linux/unaligned.h>
+#endif
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
 #include <media/videobuf2-v4l2.h>
@@ -38,7 +43,6 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
-#include <linux/version.h>
 
 #ifdef CONFIG_DRM
 #include <drm/drm_panel.h>

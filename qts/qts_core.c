@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
@@ -294,11 +294,22 @@ void qts_trusted_touch_tvm_i2c_failure_report(struct qts_data *qts_data)
 static void qts_trusted_touch_reset_gpio_toggle(struct qts_data *qts_data)
 {
 	void __iomem *base;
+	struct resource res;
 
 	if (qts_data->bus_type != QTS_BUS_TYPE_I2C)
 		return;
 
-	base = ioremap(TOUCH_RESET_GPIO_BASE, TOUCH_RESET_GPIO_SIZE);
+	if (qts_data->reset_gpio <= 0) {
+		pr_err("%s reset gpio is not valid\n", __func__);
+		return;
+	}
+
+	if (!msm_gpio_get_pin_address(qts_data->reset_gpio, &res)) {
+		pr_err("Failed to retrieve gpio-%d resource\n", qts_data->reset_gpio);
+		return;
+	}
+
+	base = ioremap(res.start, TOUCH_RESET_GPIO_SIZE);
 	writel_relaxed(0x1, base + TOUCH_RESET_GPIO_OFFSET);
 	/* wait until toggle to finish*/
 	wmb();
@@ -313,20 +324,28 @@ static void qts_trusted_touch_intr_gpio_toggle(struct qts_data *qts_data,
 {
 	void __iomem *base;
 	u32 val;
+	struct resource res;
 
-	/*
-	 * Currently reset/irq gpios address is hardcoded in SVM. But reset/irq gpios
-	 * can be different based on target. This leads to NOC issues.
-	 * TODO: Add support to parse reset/irq gpio address from dtsi
-	 */
-	return;
+	if (qts_data->bus_type != QTS_BUS_TYPE_I2C)
+		return;
 
-	base = ioremap(TOUCH_INTR_GPIO_BASE, TOUCH_INTR_GPIO_SIZE);
+	if (qts_data->irq_gpio <= 0) {
+		pr_err("%s interrupt gpio is not valid\n", __func__);
+		return;
+	}
+
+	if (!msm_gpio_get_pin_address(qts_data->irq_gpio, &res)) {
+		pr_err("Failed to retrieve gpio-%d resource\n", qts_data->irq_gpio);
+		return;
+	}
+
+	base = ioremap(res.start, TOUCH_INTR_GPIO_SIZE);
 	if (!base) {
 		pr_err("Failed to get intr base!\n");
 		return;
 	}
 	val = readl_relaxed(base + TOUCH_INTR_GPIO_OFFSET);
+
 	if (enable) {
 		val |= BIT(0);
 		writel_relaxed(val, base + TOUCH_INTR_GPIO_OFFSET);
@@ -1824,6 +1843,8 @@ int qts_client_register(struct qts_vendor_data *qts_vendor_data)
 	qts_data->schedule_suspend = qts_vendor_data->schedule_suspend;
 	qts_data->schedule_resume = qts_vendor_data->schedule_resume;
 	qts_data->suspended = true;
+	qts_data->irq_gpio = qts_vendor_data->irq_gpio;
+	qts_data->reset_gpio = qts_vendor_data->reset_gpio;
 
 	qts_adjust_irq_flags(qts_vendor_data->irq_gpio_flags,
 		&qts_data->irq_gpio_flags, &qts_data->irq_accept_flags);

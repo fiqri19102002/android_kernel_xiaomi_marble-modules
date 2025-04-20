@@ -66,7 +66,8 @@ module_entry(
             "nt36xxx/nt36xxx_fw_update.c",
             "nt36xxx/nt36xxx_mp_ctrlram.c",
             "nt36xxx/nt36xxx.c"
-    ]
+    ],
+    deps = ["qts"],
 )
 
 #define ddk_module() for focaltech_fts
@@ -83,7 +84,8 @@ module_entry(
             "focaltech_touch/focaltech_gesture.c",
             "focaltech_touch/focaltech_i2c.c",
             "focaltech_touch/focaltech_point_report_check.c"
-    ]
+    ],
+    deps = ["qts"],
 )
 
 #define ddk_module() for synaptics_tcm_ts

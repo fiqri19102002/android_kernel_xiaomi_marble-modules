@@ -13,7 +13,7 @@
  * TC3XXX
  *
  * Copyright (C) 2015-2020 Parade Technologies
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -59,7 +59,12 @@
 #include <drm/drm_panel.h>
 #endif
 
+#include <linux/version.h>
+#if (KERNEL_VERSION(6, 12, 0) > LINUX_VERSION_CODE)
 #include <asm/unaligned.h>
+#else
+#include <linux/unaligned.h>
+#endif
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/err.h>

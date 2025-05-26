@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -684,7 +684,6 @@ __qmi_rmnet_delete_client(void *port, struct qmi_info *qmi, int idx)
 	}
 
 	if (!qmi_rmnet_has_client(qmi) && !qmi_rmnet_has_pending(qmi)) {
-		unregister_pm_notifier(&(((struct rmnet_port *)port)->dfc_pm_notifier));
 		rmnet_reset_qmi_pt(port);
 		kfree(qmi);
 		return 0;
@@ -1536,6 +1535,8 @@ void qmi_rmnet_work_exit(void *port)
 
 	rmnet_work_quit = true;
 	synchronize_rcu();
+
+	unregister_pm_notifier(&(((struct rmnet_port *)port)->dfc_pm_notifier));
 
 	rmnet_work_inited = false;
 	cancel_delayed_work_sync(&rmnet_work->work);

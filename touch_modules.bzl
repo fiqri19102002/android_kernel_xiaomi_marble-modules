@@ -138,6 +138,9 @@ module_entry(
     config_option = "CONFIG_TOUCHSCREEN_PARADE_I2C",
     srcs = [
             "pt/pt_i2c.c"
+    ],
+    deps = [
+	    "pt_ts"
     ]
 )
 
@@ -147,6 +150,9 @@ module_entry(
     config_option = "CONFIG_TOUCHSCREEN_PARADE_DEVICE_ACCESS",
     srcs = [
             "pt/pt_device_access.c"
+    ],
+    deps = [
+	    "pt_ts"
     ]
 )
 
@@ -156,6 +162,9 @@ module_entry(
     config_option = "CONFIG_TOUCHSCREEN_PARADE_DEBUG_MDL",
     srcs = [
             "pt/pt_debug.c"
+    ],
+    deps = [
+            "pt_ts"
     ]
 )
 

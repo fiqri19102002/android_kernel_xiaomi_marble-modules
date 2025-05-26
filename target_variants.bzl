@@ -2,8 +2,10 @@ targets = [
     # keep sorted
     "canoe",
     "gen3auto",
+    "monaco",
     "sun",
     "vienna",
+    "lahaina",
 ]
 
 la_variants = [

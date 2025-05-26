@@ -3,7 +3,7 @@
  * FocalTech TouchScreen driver.
  *
  * Copyright (c) 2012-2019, FocalTech Systems, Ltd., all rights reserved.
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -2898,7 +2898,6 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data)
 	if (qts_en) {
 		mutex_init(&ts_data->tui_transition_lock);
 		fts_ts_fill_qts_vendor_data(&qts_vendor_data, ts_data);
-
 		ret = qts_client_register(&qts_vendor_data);
 		if (ret) {
 			pr_err("qts client register failed, rc %d\n", ret);

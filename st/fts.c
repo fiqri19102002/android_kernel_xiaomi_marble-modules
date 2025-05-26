@@ -3634,7 +3634,8 @@ static void fts_resume_work(struct work_struct *work)
 
 	info->sensor_sleep = false;
 
-	fts_enableInterrupt(info);
+	if (!mutex_is_locked(&info->tui_transition_lock))
+		fts_enableInterrupt(info);
 }
 
 /**
@@ -4150,6 +4151,7 @@ static int st_ts_pre_la_tui_enable(void *data)
 	struct fts_ts_info *info = data;
 
 	mutex_lock(&info->tui_transition_lock);
+	fts_disableInterrupt(info);
 	flush_work(&info->resume_work);
 	flush_work(&info->work);
 

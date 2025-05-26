@@ -2,6 +2,22 @@ load(":touch_modules.bzl", "touch_driver_modules")
 load(":touch_modules_build.bzl", "define_target_variant_modules")
 load(":target_variants.bzl", "get_all_variants")
 
+def define_vienna(t,v):
+    define_target_variant_modules(
+        target = t,
+        variant = v,
+        registry = touch_driver_modules,
+        modules = [
+            "raydium_ts",
+        ],
+        config_options = [
+            "TOUCH_DLKM_ENABLE",
+            "CONFIG_ARCH_VIENNA",
+            "CONFIG_MSM_TOUCH",
+            "CONFIG_TOUCHSCREEN_RM_TS",
+        ],
+)
+
 def define_sun(t,v):
     define_target_variant_modules(
         target = t,
@@ -155,6 +171,26 @@ def define_parrot(t,v):
         ],
 )
 
+def define_lahaina(t,v):
+    define_target_variant_modules(
+        target = t,
+        variant = v,
+        registry = touch_driver_modules,
+        modules = [
+            "nt36xxx-i2c",
+	    "qts",
+	    "focaltech_fts"
+        ],
+        config_options = [
+            "TOUCH_DLKM_ENABLE",
+            "CONFIG_ARCH_LAHAINA",
+            "CONFIG_MSM_TOUCH",
+	    "CONFIG_QTS_ENABLE",
+            "CONFIG_TOUCHSCREEN_NT36XXX_I2C",
+	    "CONFIG_TOUCH_FOCALTECH",
+        ],
+)
+
 def define_monaco(t,v):
     define_target_variant_modules(
         target = t,
@@ -190,6 +226,8 @@ def define_touch_target():
             define_pineapple(t, v)
         elif t == "parrot":
             define_parrot(t, v)
+        elif t == "lahaina":
+            define_lahaina(t, v)
         elif t == "monaco":
             define_monaco(t, v)
         elif t == "sun-tuivm":
@@ -204,5 +242,7 @@ def define_touch_target():
             define_canoevm(t, v)
         elif t == "sun":
             define_sun(t, v)
+        elif t == "vienna":
+            define_vienna(t, v)
         else:
             pass

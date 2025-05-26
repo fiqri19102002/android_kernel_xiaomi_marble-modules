@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "rmnet_mem_nl.h"
@@ -19,7 +19,6 @@ extern struct workqueue_struct *mem_wq;
 int rmnet_mem_nl_cmd_update_mode(struct sk_buff *skb, struct genl_info *info)
 {
 	u8 mode = 0;
-	struct sk_buff *resp;
 	struct rmnet_memzone_req mem_info;
 	struct nlattr *na;
 
@@ -30,10 +29,6 @@ int rmnet_mem_nl_cmd_update_mode(struct sk_buff *skb, struct genl_info *info)
 		}
 		rm_err("%s(): mode %u\n", __func__, mode);
 
-		resp = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-		if (!resp)
-			return -ENOMEM;
-
 		rmnet_mem_genl_send_int_to_userspace_no_info(RMNET_MEM_NL_SUCCESS, info);
 	} else {
 		rmnet_mem_genl_send_int_to_userspace_no_info(RMNET_MEM_NL_FAIL, info);
@@ -43,7 +38,6 @@ int rmnet_mem_nl_cmd_update_mode(struct sk_buff *skb, struct genl_info *info)
 
 int rmnet_mem_nl_cmd_update_pool_size(struct sk_buff *skb, struct genl_info *info)
 {
-	struct sk_buff *resp;
 	struct rmnet_pool_update_req mem_info;
 	struct nlattr *na;
 	int i;
@@ -83,11 +77,6 @@ int rmnet_mem_nl_cmd_update_pool_size(struct sk_buff *skb, struct genl_info *inf
 			queue_delayed_work(mem_wq, &pool_adjust_work, (increase)? 0: jiffies);
 		}
 
-		resp = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-
-		if (!resp)
-			return -ENOMEM;
-
 		rmnet_mem_genl_send_int_to_userspace_no_info(RMNET_MEM_NL_SUCCESS, info);
 	} else {
 		rmnet_mem_genl_send_int_to_userspace_no_info(RMNET_MEM_NL_FAIL, info);
@@ -99,7 +88,6 @@ int rmnet_mem_nl_cmd_update_pool_size(struct sk_buff *skb, struct genl_info *inf
 /* Update peak Mem pool size for Pb Ind usage */
 int rmnet_mem_nl_cmd_peak_pool_size(struct sk_buff *skb, struct genl_info *info)
 {
-	struct sk_buff *resp;
 	struct rmnet_pool_update_req mem_info;
 	struct nlattr *na;
 	int i;
@@ -120,10 +108,6 @@ int rmnet_mem_nl_cmd_peak_pool_size(struct sk_buff *skb, struct genl_info *info)
 					rmnet_mem_pb_ind_max[i] = mem_info.poolsize[i];
 			}
 		}
-		resp = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
-
-		if (!resp)
-			return -ENOMEM;
 
 		rmnet_mem_genl_send_int_to_userspace_no_info(RMNET_MEM_NL_SUCCESS, info);
 	} else {

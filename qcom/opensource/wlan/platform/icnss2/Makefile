@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
+include $(WLAN_PLATFORM_ROOT)/icnss2/parrot_gki_defconfig
+
 ccflags-y += -Wmissing-prototypes
 
 ifeq ($(CONFIG_CNSS_OUT_OF_TREE),y)

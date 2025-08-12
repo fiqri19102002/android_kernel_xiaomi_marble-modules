@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CNSS_MAIN_H
@@ -46,6 +46,12 @@
 #include "qmi.h"
 #include "cnss_prealloc.h"
 #include "cnss_common.h"
+#include <linux/pm_runtime.h>
+#if IS_ENABLED(CONFIG_PCIE_QCOM_ECAM)
+#include <linux/pm_domain.h>
+#endif
+#include <linux/nvmem-consumer.h>
+#include <linux/version.h>
 
 #define MAX_NO_OF_MAC_ADDR		4
 #define QMI_WLFW_MAX_TIMESTAMP_LEN	32
@@ -87,6 +93,21 @@
 #define TME_OEM_FUSE_FILE_NAME		"peach_sec.dat"
 #define TME_RPR_FILE_NAME		"peach_rpr.bin"
 #define TME_DPR_FILE_NAME		"peach_dpr.bin"
+#define CGN_TME_OEM_FUSE_FILE_NAME	"cologne_sec.dat"
+
+enum cx_modes {
+	CX_LEGACY = 0,
+	CX_DATA_PIN,
+	CX_DATA_PIN_PDC,
+	CX_DATA_PIN_PMIC,
+};
+
+enum cx_voltage_corners {
+	CX_RET_V = 0,
+	CX_SVS,
+	CX_SVSL1,
+	CX_NOM,
+};
 
 enum cnss_dt_type {
 	CNSS_DTT_LEGACY = 0,
@@ -333,6 +354,9 @@ enum cnss_driver_event_type {
 	CNSS_DRIVER_EVENT_QDSS_TRACE_FREE,
 	CNSS_DRIVER_EVENT_QDSS_TRACE_REQ_DATA,
 	CNSS_DRIVER_EVENT_RESUME_POST_SOL,
+	CNSS_DRIVER_EVENT_XO_TRIM_IND,
+	CNSS_DRIVER_EVENT_XDUMP_BT_ARRIVAL,
+	CNSS_DRIVER_EVENT_XDUMP_BT_OVER_WL_REQ,
 	CNSS_DRIVER_EVENT_MAX,
 };
 
@@ -368,6 +392,7 @@ enum cnss_driver_state {
 	CNSS_POWER_OFF,
 	CNSS_SHUTDOWN_DEVICE,
 	CNSS_POWERING_ON,
+	CNSS_SEC_DOWNLOAD,
 };
 
 struct cnss_recovery_data {
@@ -408,6 +433,7 @@ enum cnss_debug_quirks {
 	IGNORE_PCI_LINK_FAILURE,
 	DISABLE_TIME_SYNC,
 	FORCE_ONE_MSI,
+	PREVENT_PCI_LINK_RESUME,
 	QUIRK_MAX_VALUE
 };
 
@@ -511,6 +537,56 @@ struct cnss_thermal_cdev {
 	struct thermal_cooling_device *tcdev;
 };
 
+/**
+ * struct cnss_xo_trim_config - Configuration for crystal oscillator (XO) trim
+ * @xo_calib_reg: register for XO calibration
+ * @wcal_pbs: regulator to trigger PBS sequence
+ * @trim_val: trim value for XO
+ */
+struct cnss_xo_trim_config {
+	struct nvmem_cell *xo_calib_reg;
+	struct regulator *wcal_pbs;
+	u8 trim_val;
+};
+
+/*
+ * struct cnss_xdump_cap - Capabilities for WLAN/BT cross-module dump
+ * @indicated: Indicates whether the capabilities has been reported
+ * @wl_over_bt: Supports collecting WLAN dump over BT UART
+ * @bt_over_wl: Supports collecting BT dump over WLAN PCIe
+ */
+struct cnss_xdump_cap {
+	u8 indicated : 1;
+	u8 wl_over_bt : 1;
+	u8 bt_over_wl : 1;
+};
+
+/**
+ * struct cnss_xdump_helper - Configurations for WLAN/BT cross-module dump
+ * @user_cap: user configured capability
+ * @wl_cap: WLAN capability
+ * @bt_cap: BT capability
+ * @wl_over_bt_enabled: Indicates whether collecting BT dump over WLAN
+ * is enabled
+ * @bt_over_wlan_enabled: Indicates whether collecting WLAN dump over BT
+ * is enabled
+ * @dumping_wl_over_bt: Indicates whether collecting BT dump over WLAN
+ * is in progress
+ * @dumping_bt_over_wl: Indicates whether collecting WLAN dump over BT
+ * is in progress
+ * @wl_over_bt_complete: completion for collecting WLAN dump over BT
+ */
+struct cnss_xdump_helper {
+	struct cnss_xdump_cap user_cap;
+	struct cnss_xdump_cap wl_cap;
+	struct cnss_xdump_cap bt_cap;
+	u8 wl_over_bt_enabled;
+	u8 bt_over_wlan_enabled;
+	u8 dumping_wl_over_bt;
+	u8 dumping_bt_over_wl;
+	struct completion wl_over_bt_complete;
+};
+
 struct cnss_plat_data {
 	struct platform_device *plat_dev;
 	void *bus_priv;
@@ -519,6 +595,7 @@ struct cnss_plat_data {
 	struct list_head clk_list;
 	struct cnss_pinctrl_info pinctrl_info;
 	struct cnss_sol_gpio sol_gpio;
+	int wlan_tsf_gpio;
 #if IS_ENABLED(CONFIG_MSM_SUBSYSTEM_RESTART)
 	struct cnss_subsys_info subsys_info;
 #endif
@@ -550,6 +627,7 @@ struct cnss_plat_data {
 	struct workqueue_struct *event_wq;
 	struct work_struct recovery_work;
 	struct delayed_work wlan_reg_driver_work;
+	struct work_struct cnss_dms_del_work;
 	struct qmi_handle qmi_wlfw;
 	struct qmi_handle qmi_dms;
 	struct wlfw_rf_chip_info chip_info;
@@ -636,6 +714,8 @@ struct cnss_plat_data {
 	const char *vreg_ol_cpr, *vreg_ipa;
 	const char **pdc_init_table, **vreg_pdc_map, **pmu_vreg_map;
 	int pdc_init_table_len, vreg_pdc_map_len, pmu_vreg_map_len;
+	const char **pdc_mode_vote_table;
+	int pdc_mode_vote_table_len;
 	bool adsp_pc_enabled;
 	u64 feature_list;
 	u32 dt_type;
@@ -662,6 +742,27 @@ struct cnss_plat_data {
 	u32 cpumask_for_tx_comp_intrs;
 	bool ipa_shared_cb_enable;
 	struct task_struct *cnss_event_work_task;
+	u64 pcie_time_sync_offset;
+	bool is_fw_managed_pwr;
+	struct device **pd_devs;
+	int pd_count;
+	bool pm_suspend_in_progress;
+	struct notifier_block pm_notifier;
+	struct cnss_xo_trim_config xo_trim_conf;
+	struct cnss_xdump_helper xdump_helper;
+	bool direct_cx_data_pin_mode;
+	int direct_cx_host_sol_gpio;
+#if IS_ENABLED(CONFIG_CNSS2_DIRECT_CX_SDAM)
+	struct nvmem_cell *nvmem_cell_wlan_data_pin_mode_en;
+	struct nvmem_cell *nvmem_cell_wlan_cx_ret_off_sel;
+	struct nvmem_cell *nvmem_cell_wlan_cx_ret_mv;
+	struct nvmem_cell *nvmem_cell_wlan_cx_svs_mv;
+	struct nvmem_cell *nvmem_cell_wlan_cx_svs_l1_mv;
+	struct nvmem_cell *nvmem_cell_wlan_cx_nom_mv;
+	struct nvmem_cell *nvmem_cell_wlan_seq_debug;
+	struct nvmem_cell *nvmem_cell_wlan_seq_count;
+#endif
+	struct cnss_wlan_host_param *host_param;
 };
 
 #if IS_ENABLED(CONFIG_ARCH_QCOM)
@@ -687,11 +788,11 @@ static inline u64 cnss_get_host_timestamp(struct cnss_plat_data *plat_priv)
 int cnss_wlan_hw_disable_check(struct cnss_plat_data *plat_priv);
 int cnss_wlan_hw_enable(void);
 struct cnss_plat_data *cnss_get_plat_priv(struct platform_device *plat_dev);
-struct cnss_plat_data *cnss_get_first_plat_priv(struct platform_device *plat_dev);
+struct cnss_plat_data *cnss_get_first_plat_priv(void);
 void cnss_pm_stay_awake(struct cnss_plat_data *plat_priv);
 void cnss_pm_relax(struct cnss_plat_data *plat_priv);
 struct cnss_plat_data *cnss_get_plat_priv_by_rc_num(int rc_num);
-int cnss_get_plat_env_count(void);
+int cnss_get_max_plat_env_count(void);
 struct cnss_plat_data *cnss_get_plat_env(int index);
 void cnss_get_qrtr_info(struct cnss_plat_data *plat_priv);
 void cnss_get_sleep_clk_supported(struct cnss_plat_data *plat_priv);
@@ -724,6 +825,10 @@ int cnss_init_dev_sol_irq(struct cnss_plat_data *plat_priv);
 int cnss_deinit_dev_sol_irq(struct cnss_plat_data *plat_priv);
 int cnss_set_host_sol_value(struct cnss_plat_data *plat_priv, int value);
 int cnss_get_host_sol_value(struct cnss_plat_data *plat_priv);
+int cnss_set_direct_cx_host_sol_value(struct cnss_plat_data *plat_priv,
+				      int value);
+int cnss_get_direct_cx_host_sol_value(struct cnss_plat_data *plat_priv);
+int cnss_init_direct_cx_host_sol_gpio(struct cnss_plat_data *plat_priv);
 int cnss_register_subsys(struct cnss_plat_data *plat_priv);
 void cnss_unregister_subsys(struct cnss_plat_data *plat_priv);
 int cnss_register_ramdump(struct cnss_plat_data *plat_priv);
@@ -735,6 +840,7 @@ int cnss_do_host_ramdump(struct cnss_plat_data *plat_priv,
 			 size_t num_entries_loaded);
 void cnss_set_pin_connect_status(struct cnss_plat_data *plat_priv);
 int cnss_get_cpr_info(struct cnss_plat_data *plat_priv);
+void cnss_get_wlan_tsf_gpio_info(struct cnss_plat_data *plat_priv);
 int cnss_update_cpr_info(struct cnss_plat_data *plat_priv);
 int cnss_va_to_pa(struct device *dev, size_t size, void *va, dma_addr_t dma,
 		  phys_addr_t *pa, unsigned long attrs);
@@ -755,6 +861,8 @@ int cnss_aop_send_msg(struct cnss_plat_data *plat_priv, char *msg);
 void cnss_power_misc_params_init(struct cnss_plat_data *plat_priv);
 int cnss_aop_ol_cpr_cfg_setup(struct cnss_plat_data *plat_priv,
 			      struct wlfw_pmu_cfg_v01 *fw_pmu_cfg);
+int cnss_ol_cpr_cfg_ext_setup(struct cnss_plat_data *plat_priv,
+			      struct wlfw_pmu_cfg_ext_v01 *fw_pmu_cfg_ext);
 int cnss_request_firmware_update_timer(struct cnss_plat_data *plat_priv,
 				       const struct firmware **fw_entry,
 				       const char *filename);
@@ -775,4 +883,47 @@ size_t cnss_get_platform_name(struct cnss_plat_data *plat_priv,
 			      char *buf, const size_t buf_len);
 int cnss_iommu_map(struct iommu_domain *domain, unsigned long iova,
 		   phys_addr_t paddr, size_t size, int prot);
+int cnss_fw_managed_power_regulator(struct cnss_plat_data *plat_priv,
+				    bool enabled);
+int cnss_fw_managed_power_gpio(struct cnss_plat_data *plat_priv,
+			       bool enabled);
+int cnss_fw_managed_domain_attach(struct cnss_plat_data *plat_priv);
+void cnss_fw_managed_domain_detach(struct cnss_plat_data *plat_priv);
+void cnss_pm_notifier_init(struct cnss_plat_data *plat_priv);
+void cnss_pm_notifier_deinit(struct cnss_plat_data *plat_priv);
+int cnss_xdump_wl_over_bt_req(struct cnss_plat_data *plat_priv);
+void cnss_xdump_wl_over_bt_complete(struct cnss_plat_data *plat_priv,
+				    s32 result);
+int cnss_xdump_update_wl_cap(struct cnss_plat_data *plat_priv,
+			     u8 wl_over_bt, u8 bt_over_wl);
+
+int cnss_set_cx_mode(struct cnss_plat_data *plat_priv, enum cx_modes arg);
+int cnss_set_cxpc_power_off(struct cnss_plat_data *plat_priv,
+			    enum cxpc_status arg);
+int cnss_get_cxpc(struct cnss_plat_data *plat_priv);
+int cnss_set_cx_voltage_corner(struct cnss_plat_data *plat_priv,
+			       enum cx_voltage_corners vc, u16 arg);
+u8 *cnss_debug_direct_cx(struct cnss_plat_data *plat_priv);
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0))
+static inline int cnss_timer_delete(struct timer_list *timer)
+{
+	return timer_delete(timer);
+}
+
+static inline int cnss_timer_delete_sync(struct timer_list *timer)
+{
+	return timer_delete_sync(timer);
+}
+#else
+static inline int cnss_timer_delete(struct timer_list *timer)
+{
+	return del_timer(timer);
+}
+
+static inline int cnss_timer_delete_sync(struct timer_list *timer)
+{
+	return del_timer_sync(timer);
+}
+#endif
 #endif /* _CNSS_MAIN_H */

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved. */
+/* Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved. */
 
 #include "pci_platform.h"
 #include "debug.h"
@@ -215,7 +215,9 @@ static void cnss_pci_event_cb(struct msm_pcie_notify *notify)
 			return;
 		}
 
-		plat_priv->ctrl_params.quirks |= BIT(LINK_DOWN_SELF_RECOVERY);
+		if (!plat_priv->xdump_helper.wl_over_bt_enabled)
+			plat_priv->ctrl_params.quirks |=
+				BIT(LINK_DOWN_SELF_RECOVERY);
 
 		ret = msm_pcie_pm_control(MSM_PCIE_HANDLE_LINKDOWN,
 					  pci_dev->bus->number, pci_dev, NULL,
@@ -382,6 +384,8 @@ retry:
 		/* Since DRV suspend cannot be done in Gen 3, set it to
 		 * Gen 2 if current link speed is larger than Gen 2.
 		 */
+
+		cnss_pci_get_link_status(pci_priv);
 		if (pci_priv->drv_connected_last &&
 		    pci_priv->cur_link_speed > PCI_EXP_LNKSTA_CLS_5_0GB)
 			cnss_set_pci_link_status(pci_priv, PCI_GEN2);
@@ -483,6 +487,11 @@ void __cnss_pci_allow_l1(struct device *dev)
 	}
 
 	_cnss_pci_allow_l1(pci_priv);
+}
+
+bool cnss_pci_is_sync_probe(void)
+{
+	return true;
 }
 
 int cnss_pci_get_msi_assignment(struct cnss_pci_data *pci_priv)
@@ -686,50 +695,3 @@ int _cnss_pci_get_reg_dump(struct cnss_pci_data *pci_priv,
 {
 	return msm_pcie_reg_dump(pci_priv->pci_dev, buf, len);
 }
-
-#if IS_ENABLED(CONFIG_ARCH_QCOM)
-/**
- * cnss_pci_of_reserved_mem_device_init() - Assign reserved memory region
- *                                          to given PCI device
- * @pci_priv: driver PCI bus context pointer
- *
- * This function shall call corresponding of_reserved_mem_device* API to
- * assign reserved memory region to PCI device based on where the memory is
- * defined and attached to (platform device of_node or PCI device of_node)
- * in device tree.
- *
- * Return: 0 for success, negative value for error
- */
-int cnss_pci_of_reserved_mem_device_init(struct cnss_pci_data *pci_priv)
-{
-	struct device *dev_pci = &pci_priv->pci_dev->dev;
-	int ret;
-
-	/* Use of_reserved_mem_device_init_by_idx() if reserved memory is
-	 * attached to platform device of_node.
-	 */
-	ret = of_reserved_mem_device_init(dev_pci);
-	if (ret) {
-		if (ret == -EINVAL)
-			cnss_pr_vdbg("Ignore, no specific reserved-memory assigned\n");
-		else
-			cnss_pr_err("Failed to init reserved mem device, err = %d\n",
-				    ret);
-	}
-	if (dev_pci->cma_area)
-		cnss_pr_dbg("CMA area is %s\n",
-			    cma_get_name(dev_pci->cma_area));
-
-	return ret;
-}
-
-int cnss_pci_wake_gpio_init(struct cnss_pci_data *pci_priv)
-{
-	return 0;
-}
-
-void cnss_pci_wake_gpio_deinit(struct cnss_pci_data *pci_priv)
-{
-}
-#endif
-

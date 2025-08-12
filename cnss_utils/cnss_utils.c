@@ -158,7 +158,7 @@ enum cnss_utils_device_type cnss_utils_update_device_type(
 }
 EXPORT_SYMBOL(cnss_utils_update_device_type);
 
-void
+static void
 cnss_utils_status_update_user(enum cnss_status_type status_type,
 			      bool status)
 {

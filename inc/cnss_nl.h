@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved. */
+/* Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved. */
 
 #ifndef _NET_CNSS_GENETLINK_H_
 #define _NET_CNSS_GENETLINK_H_
@@ -56,6 +57,8 @@ enum cld80211_attr {
  *	will be sent to this group
  * @CLD80211_MCGRP_OEM_MSGS: All OEM message will be sent to this group
  *	Ex: LOWI messages
+ * @CLD80211_MCGRP_OPT_DP_LOGS: All Driver/Firmware logs related to optional
+ *	datapath will be sent to this multicast group
  */
 enum cld80211_multicast_groups {
 	CLD80211_MCGRP_SVC_MSGS,
@@ -65,6 +68,7 @@ enum cld80211_multicast_groups {
 	CLD80211_MCGRP_DIAG_EVENTS,
 	CLD80211_MCGRP_FATAL_EVENTS,
 	CLD80211_MCGRP_OEM_MSGS,
+	CLD80211_MCGRP_OPT_DP_LOGS,
 };
 
 /**

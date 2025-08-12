@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023,2025 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <net/genetlink.h>
@@ -23,6 +23,7 @@
 #define CLD80211_MULTICAST_GROUP_DIAG_EVENTS    "diag_events"
 #define CLD80211_MULTICAST_GROUP_FATAL_EVENTS   "fatal_events"
 #define CLD80211_MULTICAST_GROUP_OEM_MSGS       "oem_msgs"
+#define CLD80211_MULTICAST_GROUP_OPT_DP_LOGS    "opt_dp_logs"
 
 static const struct genl_multicast_group nl_mcgrps[] = {
 	[CLD80211_MCGRP_SVC_MSGS] = { .name =
@@ -39,6 +40,8 @@ static const struct genl_multicast_group nl_mcgrps[] = {
 			CLD80211_MULTICAST_GROUP_FATAL_EVENTS},
 	[CLD80211_MCGRP_OEM_MSGS] = { .name =
 			CLD80211_MULTICAST_GROUP_OEM_MSGS},
+	[CLD80211_MCGRP_OPT_DP_LOGS] = { .name =
+			CLD80211_MULTICAST_GROUP_OPT_DP_LOGS},
 };
 
 struct cld_ops {

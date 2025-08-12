@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _NET_CNSS2_H
@@ -15,6 +15,11 @@
 #define CNSS_WLFW_MAX_BUILD_ID_LEN	128
 #define CNSS_MAX_DEV_MEM_NUM		4
 #define CNSS_CHIP_VER_ANY		0
+
+enum cxpc_status {
+	CX_RET = 0,
+	CX_OFF,
+};
 
 enum cnss_bus_width_type {
 	CNSS_BUS_WIDTH_NONE,
@@ -134,7 +139,8 @@ struct cnss_wlan_driver {
 	int  (*suspend_noirq)(struct pci_dev *pdev);
 	int  (*resume_noirq)(struct pci_dev *pdev);
 	void (*modem_status)(struct pci_dev *pdev, int state);
-	void (*update_status)(struct pci_dev *pdev, uint32_t status);
+	void (*update_status)(struct pci_dev *pdev,
+			      enum cnss_driver_status status);
 	int  (*update_event)(struct pci_dev *pdev,
 			     struct cnss_uevent_data *uevent);
 	struct cnss_wlan_runtime_ops *runtime_ops;
@@ -182,6 +188,10 @@ struct cnss_shadow_reg_v3_cfg {
 	u32 addr;
 };
 
+struct cnss_wlan_host_param {
+	const char *chip_name;
+};
+
 struct cnss_wlan_enable_cfg {
 	u32 num_ce_tgt_cfg;
 	struct cnss_ce_tgt_pipe_cfg *ce_tgt_cfg;
@@ -214,12 +224,16 @@ enum cnss_recovery_reason {
 	CNSS_REASON_LINK_DOWN,
 	CNSS_REASON_RDDM,
 	CNSS_REASON_TIMEOUT,
+	CNSS_REASON_FW_ASSERTION_FAIL,
+	CNSS_REASON_FATAL_ERROR,
 };
 
 enum cnss_fw_caps {
 	CNSS_FW_CAP_DIRECT_LINK_SUPPORT,
 	CNSS_FW_CAP_AUX_UC_SUPPORT,
 	CNSS_FW_CAP_CALDB_SEG_DDR_SUPPORT,
+	CNSS_FW_CAP_WLAN_DUMP_OVER_BT_SUPPORT,
+	CNSS_FW_CAP_BT_DUMP_OVER_WLAN_SUPPORT,
 };
 
 enum cnss_remote_mem_type {
@@ -292,6 +306,8 @@ extern bool cnss_is_one_msi(struct device *dev);
 extern void cnss_get_msi_address(struct device *dev, uint32_t *msi_addr_low,
 				 uint32_t *msi_addr_high);
 extern int cnss_wlan_hw_enable(void);
+extern int cnss_set_host_param(struct device *dev,
+			       struct cnss_wlan_host_param *param);
 extern int cnss_wlan_enable(struct device *dev,
 			    struct cnss_wlan_enable_cfg *config,
 			    enum cnss_driver_mode mode,
@@ -327,6 +343,7 @@ extern int cnss_send_buffer_to_afcmem(struct device *dev, const uint8_t *afcdb,
 extern int cnss_reset_afcmem(struct device *dev, uint8_t slotid);
 extern bool cnss_get_fw_cap(struct device *dev, enum cnss_fw_caps fw_cap);
 extern bool cnss_audio_is_direct_link_supported(struct device *dev);
+extern int cnss_get_wlan_tsf_gpio(struct device *dev);
 extern bool cnss_ipa_wlan_shared_smmu_supported(struct device *dev);
 extern int cnss_set_wfc_mode(struct device *dev, struct cnss_wfc_cfg cfg);
 extern int cnss_thermal_cdev_register(struct device *dev,
@@ -347,4 +364,7 @@ extern void cnss_get_cpumask_for_wlan_rx_interrupts(struct device *dev,
 						    unsigned int *cpumask);
 extern void cnss_get_cpumask_for_wlan_tx_comp_interrupts(struct device *dev,
 							 unsigned int *cpumask);
+extern int cnss_set_cxpc(struct device *dev, enum cxpc_status arg);
+extern int cnss_pci_get_iova_info(struct device *dev, u64 *addr, u64 *size);
+
 #endif /* _NET_CNSS2_H */

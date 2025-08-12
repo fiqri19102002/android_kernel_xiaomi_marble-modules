@@ -6,7 +6,7 @@
 
 #include "pci.h"
 
-#if IS_ENABLED(CONFIG_PCI_MSM)
+#if IS_ENABLED(CONFIG_PCI_MSM) || IS_ENABLED(CONFIG_PCIE_QCOM_ECAM)
 /**
  * _cnss_pci_enumerate() - Enumerate PCIe endpoints
  * @plat_priv: driver platform context pointer
@@ -122,6 +122,7 @@ int cnss_pci_get_msi_assignment(struct cnss_pci_data *pci_priv);
 int cnss_pci_get_iommu_addr(struct cnss_pci_data *pci_priv, struct device_node *of_node);
 int cnss_pci_init_smmu(struct cnss_pci_data *pci_priv);
 void cnss_pci_update_drv_supported(struct cnss_pci_data *pci_priv);
+int cnss_pci_get_link_status(struct cnss_pci_data *pci_priv);
 
 /**
  * _cnss_pci_get_reg_dump() - Dump PCIe RC registers for debug
@@ -232,6 +233,10 @@ void cnss_pci_update_drv_supported(struct cnss_pci_data *pci_priv)
 	pci_priv->drv_supported = false;
 }
 
+int cnss_pci_get_link_status(struct cnss_pci_data *pci_priv)
+{
+	return 0;
+}
 #endif /* CONFIG_PCI_MSM */
 
 static inline bool cnss_pci_get_drv_supported(struct cnss_pci_data *pci_priv)
@@ -239,9 +244,23 @@ static inline bool cnss_pci_get_drv_supported(struct cnss_pci_data *pci_priv)
 	return pci_priv->drv_supported;
 }
 
-#if IS_ENABLED(CONFIG_ARCH_QCOM)
-int cnss_pci_of_reserved_mem_device_init(struct cnss_pci_data *pci_priv);
-int cnss_pci_wake_gpio_init(struct cnss_pci_data *pci_priv);
-void cnss_pci_wake_gpio_deinit(struct cnss_pci_data *pci_priv);
-#endif /* CONFIG_ARCH_QCOM */
+/**
+ * cnss_pci_is_sync_probe(): check whether PCIe device
+ * need to be present before registering cnss_pci_driver
+ *
+ * Currently SCMI power/PCIe enumeration is controlled
+ * by low level GearVM system, and upstream PCIe driver
+ * doesn't export enumeration API, like msm_pci_enumerate.
+ * So we have to power wlan power before PCIe, otherwise
+ * there doesn't have chances to do link training for wlan.
+ * It means PCIe wlan device isn't ready when register
+ * cnss_pci_driver. On the contrary, PCIe device should
+ * be present in downstream MSM PCIe driver when register
+ * cnss_pci_driver. This API is used to distinguish
+ * downstream/upstream PCIe driver case.
+ *
+ * Return: true for sync mode, false for unsync mode
+ */
+bool cnss_pci_is_sync_probe(void);
+
 #endif /* _CNSS_PCI_PLATFORM_H*/

@@ -447,6 +447,12 @@ static int icnss_stats_show_state(struct seq_file *s, struct icnss_priv *priv)
 			continue;
 		case ICNSS_LOW_POWER:
 			seq_puts(s, "ICNSS LOW POWER");
+			continue;
+		case ICNSS_SOC_WAKE_DONE:
+			seq_puts(s, "ICNSS_SOC_WAKE_DONE");
+			continue;
+		case ICNSS_REBOOT_REGISTERED:
+			seq_puts(s, "ICNSS_REBOOT_REGISTERED");
 		}
 
 		seq_printf(s, "UNKNOWN-%d", i);

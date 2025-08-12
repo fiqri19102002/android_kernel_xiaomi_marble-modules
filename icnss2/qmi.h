@@ -23,6 +23,7 @@ struct icnss_mem_seg {
 struct icnss_qmi_event_qdss_trace_save_data {
 	u32 total_size;
 	u32 mem_seg_len;
+	enum wlfw_mem_type_enum_v01 mem_type;
 	struct icnss_mem_seg mem_seg[QDSS_TRACE_SEG_LEN_MAX];
 	char file_name[QDSS_TRACE_FILE_NAME_MAX + 1];
 };
@@ -82,7 +83,7 @@ static inline int wlfw_rejuvenate_ack_send_sync_msg(struct icnss_priv *priv)
 	return 0;
 }
 static inline void icnss_ignore_fw_timeout(bool ignore) {}
-static int wlfw_send_modem_shutdown_msg(struct icnss_priv *priv)
+static int wlfw_send_fw_shutdown_msg(struct icnss_priv *priv)
 {
 	return 0;
 }
@@ -279,7 +280,7 @@ int wlfw_dynamic_feature_mask_send_sync_msg(struct icnss_priv *priv,
 int icnss_clear_server(struct icnss_priv *priv);
 int wlfw_rejuvenate_ack_send_sync_msg(struct icnss_priv *priv);
 void icnss_ignore_fw_timeout(bool ignore);
-int wlfw_send_modem_shutdown_msg(struct icnss_priv *priv);
+int wlfw_send_fw_shutdown_msg(struct icnss_priv *priv);
 int wlfw_ini_send_sync_msg(struct icnss_priv *priv, uint8_t fw_log_mode);
 int wlfw_athdiag_read_send_sync_msg(struct icnss_priv *priv,
 					   uint32_t offset, uint32_t mem_type,

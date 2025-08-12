@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
 #include <linux/soc/qcom/qmi.h>
+#include <linux/vmalloc.h>
 
 #include "bus.h"
 #include "debug.h"
@@ -34,7 +35,9 @@
  * file name. Download "qdss_trace_config_debug_v<n>.cfg" for debug build
  * and "qdss_trace_config_perf_v<n>.cfg" for perf build.
  */
-#ifdef CONFIG_CNSS2_DEBUG
+#ifdef CONFIG_CNSS_ETM_TRACE
+#define QDSS_FILE_BUILD_STR		"etm_"
+#elif defined(CONFIG_CNSS2_DEBUG)
 #define QDSS_FILE_BUILD_STR		"debug_"
 #else
 #define QDSS_FILE_BUILD_STR		"perf_"
@@ -193,6 +196,13 @@ static int cnss_wlfw_ind_register_send_sync(struct cnss_plat_data *plat_priv)
 	req->async_data_enable_valid = 1;
 	req->async_data_enable = 1;
 
+	/* Enable only when XO trim related resources are valid */
+	if (!IS_ERR_OR_NULL(plat_priv->xo_trim_conf.xo_calib_reg) &&
+	    !IS_ERR_OR_NULL(plat_priv->xo_trim_conf.wcal_pbs)) {
+		req->xo_trim_enable_valid = 1;
+		req->xo_trim_enable = 1;
+	}
+
 	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
 			   wlfw_ind_register_resp_msg_v01_ei, resp);
 	if (ret < 0) {
@@ -251,7 +261,8 @@ static void cnss_wlfw_host_cap_parse_mlo(struct cnss_plat_data *plat_priv,
 {
 	if (plat_priv->device_id == KIWI_DEVICE_ID ||
 	    plat_priv->device_id == MANGO_DEVICE_ID ||
-	    plat_priv->device_id == PEACH_DEVICE_ID) {
+	    plat_priv->device_id == PEACH_DEVICE_ID ||
+	    plat_priv->device_id == FIG_DEVICE_ID) {
 		req->mlo_capable_valid = 1;
 		req->mlo_capable = 1;
 		req->mlo_chip_id_valid = 1;
@@ -295,6 +306,30 @@ static void cnss_wlfw_host_cap_parse_mlo(struct cnss_plat_data *plat_priv,
 	}
 }
 
+#ifdef CONFIG_KASAN_GENERIC
+#define KSN_STR_LEN 6
+static void cnss_update_build_info(struct wlfw_host_cap_req_msg_v01 *req)
+{
+	char str[] = " + KSN";
+	size_t cur_len = strlen(req->platform_name);
+	size_t new_len = KSN_STR_LEN + 1;
+
+	if (cur_len + new_len >= QMI_WLFW_MAX_PLATFORM_NAME_LEN_V01) {
+		cnss_pr_err("Failed to update build info. new_len: %zu",
+			    new_len);
+		return;
+	}
+
+	strlcat(req->platform_name, str, QMI_WLFW_MAX_PLATFORM_NAME_LEN_V01);
+	cnss_pr_dbg("Build Info: %s (%zu)\n",
+		    req->platform_name, strlen(req->platform_name));
+
+}
+#else
+static void cnss_update_build_info(struct wlfw_host_cap_req_msg_v01 *req)
+{}
+#endif
+
 static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 {
 	struct wlfw_host_cap_req_msg_v01 *req;
@@ -304,6 +339,7 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 	u64 iova_start = 0, iova_size = 0,
 	    iova_ipa_start = 0, iova_ipa_size = 0;
 	u64 feature_list = 0;
+	u32 cx_mode_dt;
 
 	cnss_pr_dbg("Sending host capability message, state: 0x%lx\n",
 		    plat_priv->driver_state);
@@ -382,8 +418,29 @@ static int cnss_wlfw_host_cap_send_sync(struct cnss_plat_data *plat_priv)
 	}
 
 	if (cnss_get_platform_name(plat_priv, req->platform_name,
-				   QMI_WLFW_MAX_PLATFORM_NAME_LEN_V01))
+				   QMI_WLFW_MAX_PLATFORM_NAME_LEN_V01)) {
 		req->platform_name_valid = 1;
+		cnss_update_build_info(req);
+	}
+
+	if (plat_priv->device_id == FIG_DEVICE_ID ||
+	    of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				  "fig-direct-cx")) {
+		ret = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
+					   "cx-mode", &cx_mode_dt);
+		if (ret) {
+			cnss_pr_err("could not get cx mode\n");
+			goto out;
+		}
+
+		req->target_attachment_valid = 1;
+		if (cx_mode_dt == CX_DATA_PIN_PMIC)
+			req->target_attachment = WLFW_PMIC_V01;
+		else if (cx_mode_dt == CX_DATA_PIN_PDC)
+			req->target_attachment = WLFW_PDC_V01;
+		else
+			req->target_attachment = WLFW_THIRD_PARTY_V01;
+	}
 
 	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
 			   wlfw_host_cap_resp_msg_v01_ei, resp);
@@ -531,6 +588,7 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 	struct qmi_txn txn;
 	char *fw_build_timestamp;
 	int ret = 0, i;
+	u8 bt_over_wl, wl_over_bt;
 
 	cnss_pr_dbg("Sending target capability message, state: 0x%lx\n",
 		    plat_priv->driver_state);
@@ -602,6 +660,20 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 		strscpy(plat_priv->fw_build_id, resp->fw_build_id,
 			QMI_WLFW_MAX_BUILD_ID_LEN + 1);
 	}
+
+	cnss_pr_info("direct cx data pin mode: %d\n",
+		     resp->direct_cx_data_pin_mode_valid);
+	if (resp->direct_cx_data_pin_mode_valid) {
+		plat_priv->direct_cx_data_pin_mode =
+			resp->direct_cx_data_pin_mode;
+	}
+
+	if (plat_priv->direct_cx_data_pin_mode) {
+		ret = cnss_set_cx_mode(plat_priv, CX_DATA_PIN);
+		if (ret < 0)
+			cnss_pr_err("Failed to set to Data Pin Mode\n");
+	}
+
 	/* FW will send aop retention volatage for qca6490 */
 	if (resp->voltage_mv_valid) {
 		plat_priv->cpr_info.voltage = resp->voltage_mv;
@@ -632,8 +704,14 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 			!!(resp->fw_caps & QMI_WLFW_HOST_PCIE_GEN_SWITCH_V01);
 		plat_priv->fw_aux_uc_support =
 			!!(resp->fw_caps & QMI_WLFW_AUX_UC_SUPPORT_V01);
+		wl_over_bt = !!(resp->fw_caps &
+				QMI_WLFW_WLAN_DUMP_OVER_BT_SUPPORT_V01);
+		bt_over_wl = !!(resp->fw_caps &
+				QMI_WLFW_BT_DUMP_OVER_WLAN_SUPPORT_V01);
 		cnss_pr_dbg("FW aux uc support capability: %d\n",
 			    plat_priv->fw_aux_uc_support);
+
+		cnss_xdump_update_wl_cap(plat_priv, wl_over_bt, bt_over_wl);
 		plat_priv->fw_caps = resp->fw_caps;
 	}
 
@@ -652,8 +730,20 @@ int cnss_wlfw_tgt_cap_send_sync(struct cnss_plat_data *plat_priv)
 	if (resp->hwid_bitmap_valid)
 		plat_priv->hwid_bitmap = resp->hwid_bitmap;
 
-	if (resp->ol_cpr_cfg_valid)
-		cnss_aop_ol_cpr_cfg_setup(plat_priv, &resp->ol_cpr_cfg);
+	if (plat_priv->device_id == FIG_DEVICE_ID ||
+	    of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				  "fig-direct-cx")) {
+		cnss_pr_info("ol_cpr_cfg_ext is: %d\n",
+			     resp->ol_cpr_cfg_ext_valid);
+		if (plat_priv->direct_cx_data_pin_mode &&
+		    resp->ol_cpr_cfg_ext_valid) {
+			cnss_ol_cpr_cfg_ext_setup(plat_priv,
+						  &resp->ol_cpr_cfg_ext);
+		}
+	} else {
+		if (resp->ol_cpr_cfg_valid)
+			cnss_aop_ol_cpr_cfg_setup(plat_priv, &resp->ol_cpr_cfg);
+	}
 
 	/* Disable WLAN PDC in AOP firmware for boards which support on chip PMIC
 	 * so AOP will ignore SW_CTRL changes and do not update regulator votes.
@@ -946,7 +1036,8 @@ int cnss_wlfw_soft_sku_dnld_send_sync(struct cnss_plat_data *plat_priv)
 	cnss_pr_dbg("Sending Soft SKU information message, state: 0x%lx\n",
 		    plat_priv->driver_state);
 
-	if (plat_priv->device_id != PEACH_DEVICE_ID)
+	if (plat_priv->device_id != PEACH_DEVICE_ID &&
+	    plat_priv->device_id != FIG_DEVICE_ID)
 		return 0;
 
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
@@ -1027,7 +1118,8 @@ int cnss_wlfw_tme_patch_dnld_send_sync(struct cnss_plat_data *plat_priv,
 	cnss_pr_dbg("Sending TME patch information message, state: 0x%lx\n",
 		    plat_priv->driver_state);
 
-	if (plat_priv->device_id != PEACH_DEVICE_ID)
+	if (plat_priv->device_id != PEACH_DEVICE_ID &&
+	    plat_priv->device_id != FIG_DEVICE_ID)
 		return 0;
 
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
@@ -1106,7 +1198,9 @@ int cnss_wlfw_tme_opt_file_dnld_send_sync(struct cnss_plat_data *plat_priv,
 	char *file_name = NULL;
 	int ret = 0;
 
-	if (plat_priv->device_id != PEACH_DEVICE_ID)
+	if (plat_priv->device_id != PEACH_DEVICE_ID &&
+	    plat_priv->device_id != FIG_DEVICE_ID &&
+	    plat_priv->device_id != COLOGNE_DEVICE_ID)
 		return 0;
 
 	cnss_pr_dbg("Sending TME opt file information message, state: 0x%lx\n",
@@ -1124,7 +1218,10 @@ int cnss_wlfw_tme_opt_file_dnld_send_sync(struct cnss_plat_data *plat_priv,
 
 	if (file == WLFW_TME_LITE_OEM_FUSE_FILE_V01) {
 		tme_opt_file_mem = &plat_priv->tme_opt_file_mem[0];
-		file_name = TME_OEM_FUSE_FILE_NAME;
+		if (plat_priv->device_id == COLOGNE_DEVICE_ID)
+			file_name = CGN_TME_OEM_FUSE_FILE_NAME;
+		else
+			file_name = TME_OEM_FUSE_FILE_NAME;
 	} else if (file == WLFW_TME_LITE_RPR_FILE_V01) {
 		tme_opt_file_mem = &plat_priv->tme_opt_file_mem[1];
 		file_name = TME_RPR_FILE_NAME;
@@ -1432,7 +1529,7 @@ int cnss_wlfw_qdss_data_send_sync(struct cnss_plat_data *plat_priv, char *file_n
 		return -ENOMEM;
 	}
 
-	p_qdss_trace_data = kzalloc(total_size, GFP_KERNEL);
+	p_qdss_trace_data = vzalloc(total_size);
 	if (!p_qdss_trace_data) {
 		cnss_pr_err("%s: failed to allocate qdss trace data: %zu\n",
 			    __func__, total_size);
@@ -1534,7 +1631,7 @@ int cnss_wlfw_qdss_data_send_sync(struct cnss_plat_data *plat_priv, char *file_n
 	}
 
 fail:
-	kfree(p_qdss_trace_data);
+	vfree(p_qdss_trace_data);
 
 end:
 	kfree(req);
@@ -1778,6 +1875,92 @@ int wlfw_qdss_trace_stop(struct cnss_plat_data *plat_priv, unsigned long long op
 					     option);
 }
 
+/**
+ * cnss_wlfw_misc_req_send_sync() - Send QMI_WLFW_MISC_REQ with provided type
+ * @plat_priv: CNSS platform data
+ * @type: subtype for QMI_WLFW_MISC_REQ
+ *
+ * Return: 0 for success, negative values otherwise
+ */
+static int cnss_wlfw_misc_req_send_sync(struct cnss_plat_data *plat_priv,
+					enum wlfw_misc_req_enum_v01 type)
+{
+	int ret = 0;
+	struct wlfw_misc_req_msg_v01 *req;
+	struct wlfw_misc_resp_msg_v01 *resp;
+	struct qmi_txn txn;
+
+	if (type <= WLFW_MISC_REQ_ENUM_MIN_VAL_V01 ||
+	    type >= WLFW_MISC_REQ_ENUM_MAX_VAL_V01) {
+		cnss_pr_err("Invalid type[%d] for MISC_REQ\n", type);
+		return -EINVAL;
+	}
+
+	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req) {
+		cnss_pr_err("Failed to allocate req for MISC_REQ[%d]\n", type);
+		return -ENOMEM;
+	}
+
+	resp = kzalloc(sizeof(*resp), GFP_KERNEL);
+	if (!resp) {
+		cnss_pr_err("Failed to allocate resp for MISC_REQ[%d]\n", type);
+		kfree(req);
+		return -ENOMEM;
+	}
+
+	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
+			   wlfw_misc_resp_msg_v01_ei, resp);
+
+	if (ret < 0) {
+		cnss_pr_err("Fail to init txn for MISC_REQ[%d]: %d\n",
+			    type, ret);
+		goto end;
+	}
+
+	req->type = type;
+	ret = qmi_send_request(&plat_priv->qmi_wlfw, NULL, &txn,
+			       QMI_WLFW_MISC_REQ_V01,
+			       WLFW_MISC_REQ_MSG_V01_MAX_MSG_LEN,
+			       wlfw_misc_req_msg_v01_ei, req);
+	if (ret < 0) {
+		qmi_txn_cancel(&txn);
+		cnss_pr_err("Fail to send MISC_REQ[%d]: %d\n", type, ret);
+		goto end;
+	}
+
+	ret = qmi_txn_wait(&txn, plat_priv->ctrl_params.qmi_timeout);
+	if (ret < 0) {
+		cnss_pr_err("Failed to wait for resp of MISC_REQ[%d]: %d\n",
+			    type, ret);
+		goto end;
+	} else if (resp->resp.result != QMI_RESULT_SUCCESS_V01) {
+		cnss_pr_err("MISC_REQ[%d] failed, result:%d error:%d\n",
+			    type, resp->resp.result, resp->resp.error);
+		ret = -resp->resp.result;
+		goto end;
+	} else {
+		cnss_pr_dbg("Sent MISC_REQ[%d] successfully\n", type);
+		ret = 0;
+	}
+
+end:
+	kfree(req);
+	kfree(resp);
+	return ret;
+}
+
+/**
+ * cnss_wlfw_req_bt_dump_send_sync() - Send QMI request for dumping BT over WLAN
+ * @plat_priv: CNSS platform data
+ *
+ * Return: 0 for success, negative values otherwise
+ */
+int cnss_wlfw_req_bt_dump_send_sync(struct cnss_plat_data *plat_priv)
+{
+	return cnss_wlfw_misc_req_send_sync(plat_priv, WLFW_REQ_BT_DUMP_V01);
+}
+
 int cnss_wlfw_wlan_mode_send_sync(struct cnss_plat_data *plat_priv,
 				  enum cnss_driver_mode mode)
 {
@@ -1919,7 +2102,8 @@ int cnss_wlfw_wlan_cfg_send_sync(struct cnss_plat_data *plat_priv,
 	if (plat_priv->device_id != KIWI_DEVICE_ID &&
 	    plat_priv->device_id != MANGO_DEVICE_ID &&
 	    plat_priv->device_id != PEACH_DEVICE_ID &&
-	    plat_priv->device_id != COLOGNE_DEVICE_ID) {
+	    plat_priv->device_id != COLOGNE_DEVICE_ID &&
+	    plat_priv->device_id != FIG_DEVICE_ID) {
 		if (plat_priv->device_id == QCN7605_DEVICE_ID &&
 		    config->num_shadow_reg_cfg) {
 			req->shadow_reg_valid = 1;
@@ -1989,6 +2173,15 @@ int cnss_wlfw_wlan_cfg_send_sync(struct cnss_plat_data *plat_priv,
 					(ce_id % num_vectors) + base_vector;
 			}
 		}
+	}
+
+	if (plat_priv->host_param && plat_priv->host_param->chip_name) {
+		req->chip_name_valid = 1;
+		strscpy(req->chip_name, plat_priv->host_param->chip_name,
+			QMI_WLFW_MAX_STR_LEN_V01 + 1);
+
+		cnss_pr_dbg("chip_name: %s, chip_valid: %d, host_chip_name: %s\n",
+			    req->chip_name, req->chip_name_valid, plat_priv->host_param->chip_name);
 	}
 
 	ret = qmi_txn_init(&plat_priv->qmi_wlfw, &txn,
@@ -3255,6 +3448,34 @@ static void cnss_wlfw_driver_async_data_ind_cb(struct qmi_handle *qmi_wlfw,
 			(void *)ind_msg->data, ind_msg->data_len);
 }
 
+static void cnss_wlfw_xo_trim_ind_cb(struct qmi_handle *qmi_wlfw,
+				     struct sockaddr_qrtr *sq,
+				     struct qmi_txn *txn,
+				     const void *data)
+{
+	struct cnss_plat_data *plat_priv =
+		container_of(qmi_wlfw, struct cnss_plat_data, qmi_wlfw);
+	const struct wlfw_xo_trim_ind_msg_v01 *ind_msg = data;
+	u8 *trim_value;
+
+	if (!txn) {
+		cnss_pr_err("Spurious XO_TRIM indication\n");
+		return;
+	}
+
+	cnss_pr_dbg("Received XO_TRIM with trim val: %d\n", ind_msg->trim_val);
+	trim_value = kzalloc(sizeof(*trim_value), GFP_KERNEL);
+	if (!trim_value) {
+		cnss_pr_err("Failed to allocate memory\n");
+		goto out;
+	}
+
+	*trim_value = ind_msg->trim_val;
+
+out:
+	cnss_driver_event_post(plat_priv, CNSS_DRIVER_EVENT_XO_TRIM_IND,
+			       0, trim_value);
+}
 
 static int cnss_ims_wfc_call_twt_cfg_send_sync
 	(struct cnss_plat_data *plat_priv,
@@ -3474,6 +3695,14 @@ static struct qmi_msg_handler qmi_wlfw_msg_handlers[] = {
 		.decoded_size =
 		sizeof(struct wlfw_driver_async_data_ind_msg_v01),
 		.fn = cnss_wlfw_driver_async_data_ind_cb
+	},
+	{
+		.type = QMI_INDICATION,
+		.msg_id = QMI_WLFW_XO_TRIM_IND_V01,
+		.ei = wlfw_xo_trim_ind_msg_v01_ei,
+		.decoded_size =
+		sizeof(struct wlfw_xo_trim_ind_msg_v01),
+		.fn = cnss_wlfw_xo_trim_ind_cb
 	},
 	{}
 };
@@ -3727,6 +3956,8 @@ int cnss_qmi_get_dms_mac(struct cnss_plat_data *plat_priv)
 	plat_priv->dms.mac_valid = true;
 	memcpy(plat_priv->dms.mac, resp.mac_address, QMI_WLFW_MAC_ADDR_SIZE_V01);
 	cnss_pr_info("Received DMS MAC: [%pM]\n", plat_priv->dms.mac);
+
+	return 0;
 out:
 	return ret;
 }
@@ -3773,7 +4004,8 @@ static int dms_new_server(struct qmi_handle *qmi_dms,
 static void cnss_dms_server_exit_work(struct work_struct *work)
 {
 	int ret;
-	struct cnss_plat_data *plat_priv = cnss_get_plat_priv(NULL);
+	struct cnss_plat_data *plat_priv =
+		container_of(work, struct cnss_plat_data, cnss_dms_del_work);
 
 	cnss_dms_deinit(plat_priv);
 
@@ -3784,8 +4016,6 @@ static void cnss_dms_server_exit_work(struct work_struct *work)
 	if (ret < 0)
 		cnss_pr_err("QMI DMS service registraton failed, ret\n", ret);
 }
-
-static DECLARE_WORK(cnss_dms_del_work, cnss_dms_server_exit_work);
 
 static void dms_del_server(struct qmi_handle *qmi_dms,
 			   struct qmi_service *service)
@@ -3806,12 +4036,12 @@ static void dms_del_server(struct qmi_handle *qmi_dms,
 	clear_bit(CNSS_QMI_DMS_CONNECTED, &plat_priv->driver_state);
 	cnss_pr_info("QMI DMS service disconnected, state: 0x%lx\n",
 		     plat_priv->driver_state);
-	schedule_work(&cnss_dms_del_work);
+	schedule_work(&plat_priv->cnss_dms_del_work);
 }
 
-void cnss_cancel_dms_work(void)
+void cnss_cancel_dms_work(struct cnss_plat_data *plat_priv)
 {
-	cancel_work_sync(&cnss_dms_del_work);
+	cancel_work_sync(&plat_priv->cnss_dms_del_work);
 }
 
 static struct qmi_ops qmi_dms_ops = {
@@ -3829,6 +4059,8 @@ int cnss_dms_init(struct cnss_plat_data *plat_priv)
 		cnss_pr_err("Failed to initialize DMS handle, err: %d\n", ret);
 		goto out;
 	}
+
+	INIT_WORK(&plat_priv->cnss_dms_del_work, cnss_dms_server_exit_work);
 
 	ret = qmi_add_lookup(&plat_priv->qmi_dms, DMS_SERVICE_ID_V01,
 			     DMS_SERVICE_VERS_V01, 0);
@@ -3979,6 +4211,23 @@ out:
 	kfree(resp);
 	kfree(req);
 	return ret;
+}
+
+/**
+ * cnss_wlfw_xo_trim_result_send_sync - Notify the XO trim result to target.
+ * @plat_priv: Pointer to platform driver context.
+ * @result: XO trim result.
+ *
+ * Return: 0 on success, errno othrewise
+ */
+int cnss_wlfw_xo_trim_result_send_sync(struct cnss_plat_data *plat_priv,
+				       int result)
+{
+	enum wlfw_misc_req_enum_v01 type = (result ?
+					    WLFW_REQ_XO_TRIM_FAIL_V01 :
+					    WLFW_REQ_XO_TRIM_SUCCESS_V01);
+
+	return cnss_wlfw_misc_req_send_sync(plat_priv, type);
 }
 
 int cnss_send_subsys_restart_level_msg(struct cnss_plat_data *plat_priv)

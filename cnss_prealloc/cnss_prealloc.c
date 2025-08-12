@@ -21,6 +21,25 @@
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("CNSS prealloc driver");
 
+#ifdef CONFIG_CNSS2_DEBUG
+#define CNSS_ASSERT(_condition) do {					\
+		if (!(_condition)) {					\
+			pr_err("ASSERT at line %d\n",			\
+			       __LINE__);				\
+			BUG();						\
+		}							\
+	} while (0)
+#else
+#define CNSS_ASSERT(_condition) do {					\
+		if (!(_condition)) {					\
+			pr_err("ASSERT at line %d\n",			\
+			       __LINE__);				\
+			WARN_ON(1);					\
+		}							\
+	} while (0)
+#endif
+
+
 /* cnss preallocation scheme is a memory pool that always tries to keep a
  * list of free memory for use in emergencies. It is implemented on kernel
  * features: memorypool and kmem cache.
@@ -88,11 +107,12 @@ static struct cnss_pool cnss_pools_wcn6750[] = {
 };
 
 static struct cnss_pool cnss_pools_wcn7750[] = {
-	{8 * 1024, 2, "cnss-pool-8k", NULL, NULL},
-	{16 * 1024, 8, "cnss-pool-16k", NULL, NULL},
-	{32 * 1024, 11, "cnss-pool-32k", NULL, NULL},
-	{64 * 1024, 15, "cnss-pool-64k", NULL, NULL},
-	{128 * 1024, 4, "cnss-pool-128k", NULL, NULL},
+	{8 * 1024, 16, "cnss-pool-8k", NULL, NULL},
+	{16 * 1024, 16, "cnss-pool-16k", NULL, NULL},
+	{32 * 1024, 22, "cnss-pool-32k", NULL, NULL},
+	{64 * 1024, 38, "cnss-pool-64k", NULL, NULL},
+	{128 * 1024, 10, "cnss-pool-128k", NULL, NULL},
+	{256 * 1024, 2, "cnss-pool-256k", NULL, NULL},
 };
 
 struct cnss_pool *cnss_pools;
@@ -225,6 +245,7 @@ static void cnss_assign_prealloc_pool(unsigned long device_id)
 	case MANGO_DEVICE_ID:
 	case PEACH_DEVICE_ID:
 	case KIWI_DEVICE_ID:
+	case FIG_DEVICE_ID:
 	default:
 		cnss_pools = cnss_pools_default;
 		cnss_prealloc_pool_size = ARRAY_SIZE(cnss_pools_default);
@@ -261,7 +282,8 @@ void wcnss_check_pool_lists(void)
 				pr_err("%p not freed in %s pool at index %zu\n",
 					pool[ptr_idx], cnss_pools[i].name,
 					ptr_idx);
-				WARN_ON(1);
+				CNSS_ASSERT(0);
+
 			}
 		}
 	}

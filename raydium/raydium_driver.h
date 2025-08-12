@@ -28,7 +28,11 @@
 #define VTG_MAX_UV    2800000
 #endif
 #define RAD_MAIN_VERSION	0x01
+#ifdef CONFIG_ARCH_VIENNA
+#define RAD_MINOR_VERSION	0x06
+#else
 #define RAD_MINOR_VERSION	0x01
+#endif
 #define RAD_CUSTOMER_VERSION	0x0100
 
 #if defined(CONFIG_TOUCHSCREEN_RM_TS)
@@ -101,7 +105,11 @@
 #define RAYDIUM_PDA2_TCH_RPT_STATUS_ADDR    0x00    /* only in Page 0 */
 #define RAYDIUM_PDA2_TCH_RPT_ADDR           0x01    /* only in Page 0 */
 #define RAYDIUM_PDA2_HOST_CMD_ADDR          0x02    /* only in Page 0 */
+#ifdef CONFIG_ARCH_VIENNA
+#define RAYDIUM_PDA2_TCH_FINGER2_ADDR       0x03    /* only in Page 0 */
+#else
 #define RAYDIUM_PDA2_PALM_AREA_ADDR         0x03    /* only in Page 0 */
+#endif
 #define RAYDIUM_PDA2_GESTURE_RPT_ADDR       0x04    /* only in Page 0 */
 #define RAYDIUM_PDA2_PALM_STATUS_ADDR       0x05    /* only in Page 0 */
 #define RAYDIUM_PDA2_FW_VERSION_ADDR        0x06    /* only in Page 0 */
@@ -190,11 +198,24 @@
 #define PRESS_MAX                     0xFFFF
 #define WIDTH_MAX                     0xFFFF
 #define BYTE_SHIFT         8
+
+#ifdef CONFIG_ARCH_VIENNA
+enum raydium_touch_status {
+	TOUCH_NONE = 0,
+	TOUCH_PRESS,
+	TOUCH_RELEASE,
+	TOUCH_MOVE,
+	TOUCH_COVER,
+	TOUCH_COVER_RELEASE,
+	TOUCH_SHORTCLICK
+};
+#else
 #define TOUCH_PRESS					0
 #define TOUCH_RELEASE				1
 #define TOUCH_MOVE					2
 #define TOUCH_COVER					3
 #define TOUCH_SHORTCLICK			4
+#endif
 
 /* FW update literal */
 #define RAYDIUM_FW_BIN_PATH_LENGTH    256
@@ -216,7 +237,11 @@
 #define RAD_FT_CMD_LENGTH   0x02
 
 /* FT APK data type */
+#ifdef CONFIG_ARCH_VIENNA
+#define RAYDIUM_FT_UPDATE    0x01
+#else
 #define RAYDIUM_FT_UPDATE    0x00
+#endif
 
 /*Raydium system flag*/
 #define INT_FLAG	0x01
@@ -244,7 +269,11 @@
 #define RAD_SELFTEST
 #define PARA_FW_VERSION_OFFSET	4
 
+#ifdef CONFIG_ARCH_VIENNA
+#define ENABLE_FW_LOADER	0
+#else
 #define ENABLE_FW_LOADER	1
+#endif
 #define FW_NAME      "RM6D030.bin"
 
 #define PINCTRL_STATE_ACTIVE     "pmx_ts_active"
@@ -369,6 +398,22 @@ enum raydium_pt_report_status {
 	POS_FW_STATE,
 };
 
+#ifdef CONFIG_ARCH_VIENNA
+enum raydium_pt_report_idx {
+	POS_PT_ID = 0,
+	POS_X_L,
+	POS_X_H,
+	POS_Y_L,
+	POS_Y_H,
+	POS_PRESSURE_L,
+	POS_PRESSURE_H,
+	POS_WX,
+	POS_WY,
+	POS_STATUS,
+	POS_RESERVED,
+	LEN_PT = 11
+};
+#else
 enum raydium_pt_report_idx {
 	POS_PT_ID = 0,
 	POS_X_L,
@@ -383,6 +428,9 @@ enum raydium_pt_report_idx {
 	POS_WY_H,
 	LEN_PT = 11
 };
+#endif
+
+
 
 enum raydium_log_level {
 	LOG_NONE = 0,

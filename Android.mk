@@ -25,6 +25,10 @@ ifeq ($(TARGET_BOARD_PLATFORM), lahaina)
       LOCAL_MODULE_DDK_BUILD := true
 endif
 
+ifeq ($(TARGET_BOARD_PLATFORM), vienna)
+      LOCAL_MODULE_DDK_BUILD := true
+endif
+
 include $(CLEAR_VARS)
 
 # This makefile is only for DLKM

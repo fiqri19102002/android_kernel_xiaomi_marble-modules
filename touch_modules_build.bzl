@@ -58,15 +58,10 @@ def define_target_variant_modules(target, variant, registry, modules, config_opt
             "//soc-repo:{}/drivers/virt/gunyah/gh_mem_notifier".format(kernel_build),
             "//soc-repo:{}/drivers/virt/gunyah/gh_irq_lend".format(kernel_build),
             "//soc-repo:{}/drivers/virt/gunyah/gh_rm_drv".format(kernel_build),
+            "//soc-repo:{}/drivers/soc/qcom/panel_event_notifier".format(kernel_build),
         ],
         "//build/kernel/kleaf:socrepo_false": ["//msm-kernel:all_headers"],
     })
-
-    if not vm_target:
-        deps += select({
-            "//build/kernel/kleaf:socrepo_true": ["//soc-repo:{}/drivers/soc/qcom/panel_event_notifier".format(kernel_build)],
-            "//build/kernel/kleaf:socrepo_false": [],
-        })
 
     all_module_rules = []
 

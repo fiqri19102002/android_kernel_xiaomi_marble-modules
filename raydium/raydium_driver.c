@@ -3,7 +3,7 @@
  * Raydium TouchScreen driver.
  *
  * Copyright (c) 2021  Raydium tech Ltd.
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -410,7 +410,7 @@ int raydium_i2c_pda_set_address(unsigned int u32_address,
 		i32_ret = i2c_master_send(client, u8_buf,
 					  RAD_I2C_PDA_ADDRESS_LENGTH);
 		if (i32_ret != RAD_I2C_PDA_ADDRESS_LENGTH) {
-			LOGD(LOG_ERR, "[touch]%s: I2C retry %d\n",
+			LOGD(LOG_DEBUG, "[touch]%s: I2C retry %d\n",
 			     __func__, u8_retry + 1);
 			usleep_range(500, 1500);
 		} else {
@@ -418,7 +418,7 @@ int raydium_i2c_pda_set_address(unsigned int u32_address,
 		}
 	}
 
-	return (i32_ret == RAD_I2C_PDA_ADDRESS_LENGTH) ? i32_ret : -EIO;
+	return (i32_ret == RAD_I2C_PDA_ADDRESS_LENGTH) ? i32_ret : ERROR;
 }
 
 /*device attribute raydium_i2c_pda2_mode used*/
@@ -540,7 +540,7 @@ int handle_i2c_pda_read(struct i2c_client *client,
 {
 	if ((g_u8_i2c_mode & PDA_MODE) != 0)  {
 		if (raydium_i2c_pda_read(client, u32_addr, u8_r_data, u16_length) == ERROR) {
-			LOGD(LOG_ERR, "[touch] handle_ic_write I2C NG!\r\n");
+			LOGD(LOG_DEBUG, "[touch] handle_ic_write I2C NG!\r\n");
 			return ERROR;
 		}
 	} else {
@@ -558,7 +558,7 @@ int handle_i2c_pda_write(struct i2c_client *client,
 {
 	if ((g_u8_i2c_mode & PDA_MODE) != 0)  {
 		if (raydium_i2c_pda_write(client, u32_addr, u8_w_data, u16_length) == ERROR) {
-			LOGD(LOG_ERR, "[touch] handle_ic_write I2C NG!\r\n");
+			LOGD(LOG_DEBUG, "[touch] handle_ic_write I2C NG!\r\n");
 			return ERROR;
 		}
 	} else {
@@ -733,10 +733,11 @@ void raydium_irq_control(bool enable)
 unsigned char raydium_disable_i2c_deglitch(void)
 {
 	unsigned int u32_buf = 0;
-	unsigned char u8_retry = 3, u8_comfirm_time = 3;
+	unsigned char u8_comfirm_time = 3;
 	unsigned char u8_check = 0, u8_i = 0;
 	unsigned int u32_i2c_deglitch = 0x07060000;
 	unsigned char u8_buf[4];
+	int u8_retry = 3;
 
 	while (u8_retry--) {
 		u32_buf = 0;
@@ -760,7 +761,8 @@ unsigned char raydium_disable_i2c_deglitch(void)
 			if (handle_i2c_pda_read(g_raydium_ts->client,
 						RAYDIUM_PDA_I2CENG,
 						(unsigned char *)(&u32_buf), 4) == ERROR) {
-				LOGD(LOG_ERR, "[touch]%s: 1.handle_ic_read I2C NG!\r\n", __func__);
+				LOGD(LOG_DEBUG, "[touch]%s: 1.handle_ic_read I2C NG!\r\n",
+					 __func__);
 				break;
 			}
 
@@ -775,7 +777,7 @@ unsigned char raydium_disable_i2c_deglitch(void)
 
 		if (handle_i2c_pda_write(g_raydium_ts->client, RAYDIUM_PDA_I2CENG,
 					 (unsigned char *)(&u32_i2c_deglitch), 4) == ERROR) {
-			LOGD(LOG_ERR, "[touch]%s:handle_ic_write I2C NG!\r\n", __func__);
+			LOGD(LOG_DEBUG, "[touch]%s:handle_ic_write I2C NG!\r\n", __func__);
 			continue;
 		}
 
@@ -786,7 +788,7 @@ unsigned char raydium_disable_i2c_deglitch(void)
 			if (handle_i2c_pda_read(g_raydium_ts->client,
 						RAYDIUM_PDA_I2CENG,
 						(unsigned char *)(&u32_buf), 4) == ERROR) {
-				LOGD(LOG_ERR, "[touch]%s:2.handle_ic_read I2C NG!\r\n", __func__);
+				LOGD(LOG_DEBUG, "[touch]%s:2.handle_ic_read I2C NG!\r\n", __func__);
 				break;
 			}
 
@@ -800,7 +802,8 @@ unsigned char raydium_disable_i2c_deglitch(void)
 			break;
 	}
 
-	if (u8_retry == 0)
+	if (u8_retry <= 0)
+		LOGD(LOG_ERR, "[touch]%s: handle_ic_read I2C NG!\r\n", __func__);
 		return ERROR;
 
 	u32_buf = 0x03;
@@ -942,9 +945,66 @@ exit:
 }
 #endif
 
+#ifdef CONFIG_ARCH_VIENNA
+static int raydium_touch_report(unsigned char *p_u8_buf,
+				unsigned char u8_points_amount)
+{
+	unsigned char u8_i, u8_offset = 0, u8_pt_status;
+	signed char i8_wx, i8_wy;
+	/* number of touch points */
+	unsigned char u8_touch_count = 0;
 
+	for (u8_i = 0; u8_i < g_raydium_ts->u8_max_touchs; u8_i++) {
+		u8_offset = u8_i  * LEN_PT;
+		u8_pt_status = p_u8_buf[POS_STATUS + u8_i * LEN_PT];
+		if (u8_pt_status == TOUCH_PRESS || u8_pt_status == TOUCH_MOVE) {
+			g_raydium_ts->x_pos[u8_i] = p_u8_buf[POS_X_L + u8_offset] |
+						    p_u8_buf[POS_X_H + u8_offset] << BYTE_SHIFT;
+			g_raydium_ts->y_pos[u8_i] = p_u8_buf[POS_Y_L + u8_offset] |
+						    p_u8_buf[POS_Y_H + u8_offset] << BYTE_SHIFT;
+			g_raydium_ts->pressure = p_u8_buf[POS_PRESSURE_L + u8_offset] |
+						 p_u8_buf[POS_PRESSURE_H + u8_offset] << BYTE_SHIFT;
+			i8_wx = p_u8_buf[POS_WX + u8_offset];
+			i8_wy = p_u8_buf[POS_WY + u8_offset];
 
+			input_mt_slot(g_raydium_ts->input_dev, p_u8_buf[POS_PT_ID + u8_offset]);
+			input_mt_report_slot_state(g_raydium_ts->input_dev,
+						   MT_TOOL_FINGER, true);
 
+			input_report_abs(g_raydium_ts->input_dev,
+					 ABS_MT_POSITION_X, g_raydium_ts->x_pos[u8_i]);
+			input_report_abs(g_raydium_ts->input_dev,
+					 ABS_MT_POSITION_Y, g_raydium_ts->y_pos[u8_i]);
+			input_report_abs(g_raydium_ts->input_dev,
+					 ABS_MT_PRESSURE, g_raydium_ts->pressure);
+			input_report_abs(g_raydium_ts->input_dev,
+					 ABS_MT_TOUCH_MAJOR, max(i8_wx, i8_wy));
+			input_report_abs(g_raydium_ts->input_dev,
+					 ABS_MT_TOUCH_MINOR, min(i8_wx, i8_wy));
+			LOGD(LOG_DEBUG, "[touch:%d]x:%d,y:%d\n",
+			     p_u8_buf[POS_PT_ID + u8_offset],
+			     p_u8_buf[POS_X_L + u8_offset] |
+			     p_u8_buf[POS_X_H + u8_offset] << 8,
+			     p_u8_buf[POS_Y_L + u8_offset] |
+			     p_u8_buf[POS_Y_H + u8_offset] << 8);
+			u8_touch_count++;
+		}else if (u8_pt_status == TOUCH_RELEASE) {
+			input_mt_slot(g_raydium_ts->input_dev, p_u8_buf[POS_PT_ID + u8_offset]);
+			input_mt_report_slot_state(g_raydium_ts->input_dev,
+					   MT_TOOL_FINGER, false);
+		}
+	}
+
+	input_report_key(g_raydium_ts->input_dev,
+		 BTN_TOUCH, u8_touch_count > 0);
+	input_report_key(g_raydium_ts->input_dev,
+		 BTN_TOOL_FINGER, u8_touch_count > 0);
+
+	input_sync(g_raydium_ts->input_dev);
+
+	return 0;
+}
+#else
 static int raydium_touch_report(unsigned char *p_u8_buf,
 				unsigned char u8_points_amount)
 {
@@ -1078,7 +1138,105 @@ static int raydium_touch_report(unsigned char *p_u8_buf,
 
 	return 0;
 }
+#endif
 
+#ifdef CONFIG_ARCH_VIENNA
+int raydium_read_touchdata(unsigned char *p_u8_tp_status,  unsigned char *p_u8_buf)
+{
+
+	int i32_ret = 0;
+	unsigned char u8_points_amount;
+	static unsigned char u8_seq_no;
+	unsigned char u8_retry;
+	unsigned char u8_read_size;
+	unsigned char u8_read_buf[MAX_REPORT_PACKET_SIZE];
+
+	u8_retry = 3;
+
+	mutex_lock(&g_raydium_ts->lock);
+	memset(u8_read_buf, 0, MAX_REPORT_PACKET_SIZE);
+	memset(p_u8_buf, 0, MAX_REPORT_PACKET_SIZE);
+	memset(p_u8_tp_status, 0, MAX_TCH_STATUS_PACKET_SIZE);
+
+	u8_read_size = 4 + 1 * LEN_PT + 1;
+
+	/*read touch point information*/
+	i32_ret = raydium_i2c_pda2_read(g_raydium_ts->client,
+					RAYDIUM_PDA2_TCH_RPT_STATUS_ADDR,
+					u8_read_buf, u8_read_size);
+	if (i32_ret < 0) {
+		LOGD(LOG_ERR, "[touch]%s: failed to read data: %d\n",
+		     __func__, __LINE__);
+		goto exit_error;
+	}
+	memcpy(p_u8_tp_status, &u8_read_buf[0], MAX_TCH_STATUS_PACKET_SIZE);
+
+#ifdef ESD_SOLUTION_EN
+	if (p_u8_tp_status[POS_FW_STATE] != 0x1A &&
+	    p_u8_tp_status[POS_FW_STATE] != 0xAA) {
+		if (g_u8_resetflag == true) {
+			LOGD(LOG_ERR, "[touch]%s -> filter irq, FW state = 0x%x\n",
+			     __func__, p_u8_tp_status[POS_FW_STATE]);
+			i32_ret = -1;
+			g_u8_resetflag = false;
+			goto exit_error;
+		}
+		LOGD(LOG_ERR, "[touch]%s -> abnormal irq, FW state = 0x%x\n",
+		     __func__, p_u8_tp_status[POS_FW_STATE]);
+		i32_ret = -1;
+		goto reset_error;
+
+	}
+#endif
+	u8_points_amount = p_u8_tp_status[POS_PT_AMOUNT];
+	if (u8_points_amount > MAX_TOUCH_NUM)
+		goto exit_error;
+	if (u8_points_amount > 1) {
+		u8_read_size = 10;
+		/*read touch point information*/
+		i32_ret = raydium_i2c_pda2_read(g_raydium_ts->client,
+						RAYDIUM_PDA2_TCH_FINGER2_ADDR,
+						&u8_read_buf[16], u8_read_size);
+		if (i32_ret < 0) {
+			LOGD(LOG_ERR, "[touch]%s: failed to read data: %d\n",
+			     __func__, __LINE__);
+			goto exit_error;
+		}
+	}
+
+	/* inform IC to prepare next report*/
+	if (u8_seq_no == p_u8_tp_status[POS_SEQ] || p_u8_tp_status[POS_SEQ] == 0) {
+		LOGD(LOG_WARNING, "[touch]%s -> report not updated.\n", __func__);
+		goto exit_error;
+	}
+	u8_seq_no = p_u8_tp_status[POS_SEQ];
+	p_u8_tp_status[POS_SEQ] = 0;
+
+	memcpy(p_u8_buf, &u8_read_buf[4], u8_points_amount * LEN_PT);
+
+	raydium_touch_report(p_u8_buf, u8_points_amount);
+
+exit_error:
+	mutex_unlock(&g_raydium_ts->lock);
+	return i32_ret;
+#ifdef ESD_SOLUTION_EN
+reset_error:
+	mutex_unlock(&g_raydium_ts->lock);
+
+	u8_retry = 3;
+	while (u8_retry != 0) {
+		i32_ret = raydium_hw_reset_fun(g_raydium_ts->client);
+		LOGD(LOG_ERR, "[touch]%s: HW reset\n", __func__);
+		if (i32_ret < 0) {
+			msleep(100);
+			u8_retry--;
+		} else
+			break;
+	}
+#endif
+	return i32_ret;
+}
+#else
 int raydium_read_touchdata(unsigned char *p_u8_tp_status,  unsigned char *p_u8_buf)
 {
 	int i32_ret = 0;
@@ -1187,6 +1345,7 @@ reset_error:
 #endif
 	return i32_ret;
 }
+#endif
 
 static void raydium_work_handler(struct work_struct *work)
 {

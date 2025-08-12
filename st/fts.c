@@ -24,7 +24,7 @@
  *
  * THIS SOFTWARE IS SPECIFICALLY DESIGNED FOR EXCLUSIVE USE WITH ST PARTS.
  *
- * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 /*!
@@ -3374,7 +3374,7 @@ static int fts_init_sensing(struct fts_ts_info *info)
 						 * sensing */
 #endif
 
-	/* error |= fts_enableInterrupt(); */	/* enable the interrupt */
+	error |= fts_enableInterrupt(info);	/* enable the interrupt */
 	error |= fts_resetDisableIrqCount(info);
 
 	if (error < OK)

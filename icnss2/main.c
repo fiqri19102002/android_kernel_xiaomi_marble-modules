@@ -866,8 +866,14 @@ static irqreturn_t fw_crash_indication_handler(int irq, void *ctx)
 
 		set_bit(ICNSS_FW_DOWN, &priv->state);
 		icnss_ignore_fw_timeout(true);
-		clear_bit(ICNSS_SOC_WAKE_DONE, &priv->state);
-		complete(&priv->smp2p_soc_wake_wait);
+		icnss_pr_err(" device id 0x%lx", priv->device_id);
+		if (priv->device_id == WCN6750_DEVICE_ID ||
+		    priv->device_id == WCN7750_DEVICE_ID ||
+		    priv->device_id == WCN6450_DEVICE_ID) {
+			icnss_pr_err("clearing soc wake done flag\n");
+			clear_bit(ICNSS_SOC_WAKE_DONE, &priv->state);
+			complete(&priv->smp2p_soc_wake_wait);
+		}
 
 		if (test_bit(ICNSS_FW_READY, &priv->state)) {
 			clear_bit(ICNSS_FW_READY, &priv->state);
@@ -3034,8 +3040,14 @@ static int icnss_wpss_early_notifier_nb(struct notifier_block *nb,
 	if (code == QCOM_SSR_BEFORE_SHUTDOWN) {
 		set_bit(ICNSS_FW_DOWN, &priv->state);
 		icnss_ignore_fw_timeout(true);
-		clear_bit(ICNSS_SOC_WAKE_DONE, &priv->state);
-		complete(&priv->smp2p_soc_wake_wait);
+		icnss_pr_err(" device id 0x%lx", priv->device_id);
+		if (priv->device_id == WCN6750_DEVICE_ID ||
+		    priv->device_id == WCN7750_DEVICE_ID ||
+		    priv->device_id == WCN6450_DEVICE_ID) {
+			icnss_pr_err("clearing soc wake done flag\n");
+			clear_bit(ICNSS_SOC_WAKE_DONE, &priv->state);
+			complete(&priv->smp2p_soc_wake_wait);
+		}
 	}
 
 	return NOTIFY_DONE;

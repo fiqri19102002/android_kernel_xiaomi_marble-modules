@@ -3961,6 +3961,7 @@ int cnss_qmi_get_dms_mac(struct cnss_plat_data *plat_priv)
 	    resp.mac_address_len != QMI_WLFW_MAC_ADDR_SIZE_V01) {
 		cnss_pr_err("Invalid MAC address received from DMS\n");
 		plat_priv->dms.mac_valid = false;
+		ret = -EINVAL;
 		goto out;
 	}
 	plat_priv->dms.mac_valid = true;

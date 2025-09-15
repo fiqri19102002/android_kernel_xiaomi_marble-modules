@@ -90,6 +90,10 @@
 #define CPUMASK_ARRAY_SIZE		2
 #define MAX_SYSFS_USER_COMMAND_SIZE_LENGTH (5)
 #define XDUMP_TIMEOUT_MS	20000
+#define NOM_VOLTAGE			0x37A /* 890mV */
+#define SVS_VOLTAGE			0x258 /* 600mV */
+#define SVS_L1_VOLTAGE			0x28A /* 650mV */
+#define RET_VOLTAGE			0x15E /* 350mV */
 
 enum cnss_cal_db_op {
 	CNSS_CAL_DB_UPLOAD,
@@ -1623,7 +1627,12 @@ unsigned int cnss_get_timeout(struct cnss_plat_data *plat_priv,
 		 * account for FW dump collection and FW re-initialization on
 		 * retry.
 		 */
-		return (qmi_timeout + WLAN_MISSION_MODE_TIMEOUT * 3);
+		/* Since there are 7 FW files to download during restart, and
+		 * each file can take upto 60 seconds to download and request_fw_api
+		 * increasing the idle restart timer to 500 seconds to avoid
+		 * timeout issues.
+		 */
+		return (qmi_timeout + WLAN_MISSION_MODE_TIMEOUT * 3) * 5;
 	case CNSS_TIMEOUT_CALIBRATION:
 		/* Similar to mission mode, in CBC if FW init fails
 		 * fw recovery is tried. Thus return 2x the CBC timeout.
@@ -2302,6 +2311,12 @@ static int cnss_init_sol_gpio(struct cnss_plat_data *plat_priv)
 {
 	int ret;
 
+	if (plat_priv->device_id == FIG_DEVICE_ID) {
+		ret = cnss_init_direct_cx_host_sol_gpio(plat_priv);
+		if (ret)
+			goto out;
+	}
+
 	ret = cnss_init_dev_sol_gpio(plat_priv);
 	if (ret)
 		goto out;
@@ -2365,6 +2380,8 @@ int cnss_init_direct_cx_host_sol_gpio(struct cnss_plat_data *plat_priv)
 
 	gpio_direction_output(plat_priv->direct_cx_host_sol_gpio, 0);
 
+	cnss_pr_info("Successfully initialized Direct CX Host SOL\n");
+
 	return 0;
 
 out:
@@ -2400,6 +2417,60 @@ static void cnss_deinit_direct_cx_host_sol_gpio(struct cnss_plat_data *plat_priv
 #endif
 
 #if IS_ENABLED(CONFIG_CNSS2_DIRECT_CX_SDAM)
+static char *cnss_get_cx_voltage_corner(enum cx_voltage_corners vc)
+{
+	switch (vc) {
+	case CX_RET_V:
+		return "RET";
+	case CX_SVS:
+		return "SVS";
+	case CX_SVSL1:
+		return "SVSL1";
+	case CX_NOM:
+		return "NOM";
+	default:
+		break;
+	}
+
+	return "Invalid";
+}
+
+static int cnss_get_cx_mode_sdam(struct cnss_plat_data *plat_priv)
+{
+	size_t len;
+	u8 *buf;
+	u8 ret = 0;
+
+	cnss_pr_info("Entering cnss_get_cx_mode_sdam\n");
+
+	if (!plat_priv) {
+		cnss_pr_info("plat_priv is null\n");
+		return -EINVAL;
+	}
+
+	if (IS_ERR(plat_priv->nvmem_cell_wlan_data_pin_mode_en)) {
+		cnss_pr_err("wlan_data_pin_mode_en is not available\n");
+		return -ENOENT;
+	}
+
+	buf = nvmem_cell_read(plat_priv->nvmem_cell_wlan_data_pin_mode_en,
+			      &len);
+	if (IS_ERR(buf)) {
+		cnss_pr_err("Failed to read wlan_data_pin_mode_en: %d\n",
+			    PTR_ERR(buf));
+		return PTR_ERR(buf);
+	}
+
+	ret = *buf;
+
+	cnss_pr_info("Successfully read val %d from wlan_data_pin_mode_en\n",
+		     ret);
+
+	kfree(buf);
+
+	return ret;
+}
+
 static int cnss_set_cx_mode_sdam(struct cnss_plat_data *plat_priv,
 				 enum cx_modes arg)
 {
@@ -2434,7 +2505,6 @@ static int cnss_set_cx_mode_sdam(struct cnss_plat_data *plat_priv,
 
 static int cnss_get_cxpc_sdam(struct cnss_plat_data *plat_priv)
 {
-	struct device *dev = &plat_priv->plat_dev->dev;
 	size_t len;
 	u8 *buf;
 	u8 ret = 0;
@@ -2446,11 +2516,6 @@ static int cnss_get_cxpc_sdam(struct cnss_plat_data *plat_priv)
 		return -EINVAL;
 	}
 
-	if (!dev) {
-		cnss_pr_info("dev is null\n");
-		return -ENODEV;
-	}
-
 	if (IS_ERR(plat_priv->nvmem_cell_wlan_cx_ret_off_sel)) {
 		cnss_pr_err("wlan_cx_ret_off_sel is not available\n");
 		return -ENOENT;
@@ -2458,8 +2523,6 @@ static int cnss_get_cxpc_sdam(struct cnss_plat_data *plat_priv)
 
 	buf = nvmem_cell_read(plat_priv->nvmem_cell_wlan_cx_ret_off_sel, &len);
 	if (IS_ERR(buf)) {
-		dev_err(dev, "Failed to read wlan_cx_ret_off_sel: %ld\n",
-			PTR_ERR(buf));
 		cnss_pr_err("Failed to read wlan_cx_ret_off_sel: %d\n",
 			    PTR_ERR(buf));
 		return PTR_ERR(buf);
@@ -2525,11 +2588,14 @@ static int cnss_set_cx_voltage_corner_sdam(struct cnss_plat_data *plat_priv,
 	case CX_RET_V:
 		nvmem_cell = plat_priv->nvmem_cell_wlan_cx_ret_mv;
 		break;
+	/* SVS and SVS_L1 voltages are set with the opposite SDAM
+	 * registers in order to account for PMIC mapping them so.
+	 */
 	case CX_SVS:
-		nvmem_cell = plat_priv->nvmem_cell_wlan_cx_svs_mv;
+		nvmem_cell = plat_priv->nvmem_cell_wlan_cx_svs_l1_mv;
 		break;
 	case CX_SVSL1:
-		nvmem_cell = plat_priv->nvmem_cell_wlan_cx_svs_l1_mv;
+		nvmem_cell = plat_priv->nvmem_cell_wlan_cx_svs_mv;
 		break;
 	case CX_NOM:
 		nvmem_cell = plat_priv->nvmem_cell_wlan_cx_nom_mv;
@@ -2551,13 +2617,13 @@ static int cnss_set_cx_voltage_corner_sdam(struct cnss_plat_data *plat_priv,
 		return rc;
 	}
 
-	cnss_pr_info("Successfully wrote val %d into %d voltage corner$s\n",
-		     arg, vc);
+	cnss_pr_info("Successfully wrote val 0.%dV into %s voltage corners\n",
+		     arg, cnss_get_cx_voltage_corner(vc));
 
 	return 0;
 }
 
-u8 *cnss_read_debug_register(struct cnss_plat_data *plat_priv)
+static u8 *cnss_read_debug_register(struct cnss_plat_data *plat_priv)
 {
 	u8 *buf;
 	size_t len;
@@ -2597,18 +2663,46 @@ u8 *cnss_read_debug_register(struct cnss_plat_data *plat_priv)
 	return buf;
 }
 
-static void cnss_enable_direct_cx_pmic_pbs(struct cnss_plat_data *plat_priv)
+static int cnss_enable_direct_cx_pmic_pbs(struct cnss_plat_data *plat_priv)
 {
-	cnss_pr_info("Entering cnss_enable_direct_cx_pmic_pbs\n");
-	if (!of_property_read_bool(plat_priv->plat_dev->dev.of_node,
-				   "fig-direct-cx")) {
+	struct device *dev = &plat_priv->plat_dev->dev;
+	int ret;
+
+	if (of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				  "fig-direct-cx")) {
 		cnss_pr_info("Enabling Direct CX feature\n");
+		plat_priv->cngo_pbs = devm_regulator_get(dev, "cngo-pbs");
+
+		if (IS_ERR_OR_NULL(plat_priv->cngo_pbs)) {
+			cnss_pr_info("Failed to get cngo_pbs: %d\n",
+				     PTR_ERR(plat_priv->cngo_pbs));
+			return -ENOENT;
+		}
+
+		cnss_pr_info("Initialized Direct CX CNGO_PBS trigger\n");
+
+		ret = regulator_enable(plat_priv->cngo_pbs);
+		if (ret) {
+			cnss_pr_err("Failed to enable cngo_pbs: %d\n", ret);
+			return ret;
+		}
+
+		ret = regulator_disable(plat_priv->cngo_pbs);
+		if (ret) {
+			cnss_pr_err("Failed to disable cngo_pbs: %d\n", ret);
+			return ret;
+		}
+
+		cnss_pr_info("Successfully triggered Direct CX CNGO_PBS\n");
 	}
+
+	return 0;
 }
 
 static int cnss_get_nvmem_cells(struct cnss_plat_data *plat_priv)
 {
 	struct device *dev = &plat_priv->plat_dev->dev;
+	u8 debug_sdam_enable = 0x80;
 	int rc = 0;
 
 	cnss_pr_info("Starting Direct CX nvmem-cells get\n");
@@ -2668,6 +2762,17 @@ static int cnss_get_nvmem_cells(struct cnss_plat_data *plat_priv)
 			    rc);
 		goto out;
 	}
+
+	rc = nvmem_cell_write(plat_priv->nvmem_cell_wlan_seq_debug,
+			      &debug_sdam_enable, sizeof(debug_sdam_enable));
+	if (rc < 0) {
+		cnss_pr_err("Write to wlan_seq_debug cell failed: %d",
+			    rc);
+	}
+
+	cnss_pr_info("Successfully wrote val 0x%x into wlan_seq_debug\n",
+		     debug_sdam_enable);
+
 	plat_priv->nvmem_cell_wlan_seq_count =
 		devm_nvmem_cell_get(dev, "wlan_seq_count");
 	if (IS_ERR(plat_priv->nvmem_cell_wlan_seq_count)) {
@@ -2692,13 +2797,18 @@ static int cnss_set_cx_mode_sdam(struct cnss_plat_data *plat_priv,
 	return 0;
 }
 
-static int cnss_get_cxpc_sdam(struct cnss_plat_data *plat_priv)
+static int cnss_get_cx_mode_sdam(struct cnss_plat_data *plat_priv)
 {
 	return 0;
 }
 
 static int cnss_set_cxpc_sdam(struct cnss_plat_data *plat_priv,
 			      enum cxpc_status arg)
+{
+	return 0;
+}
+
+static int cnss_get_cxpc_sdam(struct cnss_plat_data *plat_priv)
 {
 	return 0;
 }
@@ -2710,14 +2820,15 @@ static int cnss_set_cx_voltage_corner_sdam(struct cnss_plat_data *plat_priv,
 	return 0;
 }
 
-u8 *cnss_read_debug_register(struct cnss_plat_data *plat_priv)
+static u8 *cnss_read_debug_register(struct cnss_plat_data *plat_priv)
 {
 	cnss_pr_info("Entering negative cnss_read_debug_register function\n");
 	return NULL;
 }
 
-static void cnss_enable_direct_cx_pmic_pbs(struct cnss_plat_data *plat_priv)
+static int cnss_enable_direct_cx_pmic_pbs(struct cnss_plat_data *plat_priv)
 {
+	return 0;
 }
 
 static int cnss_get_nvmem_cells(struct cnss_plat_data *plat_priv)
@@ -2749,11 +2860,105 @@ int cnss_set_cx_mode(struct cnss_plat_data *plat_priv, enum cx_modes arg)
 		return cnss_set_cx_mode_sdam(plat_priv, arg);
 	else if (cx_mode_dt == CX_DATA_PIN_PDC) {
 		//TODO: Add Hawi implementation
-		return -ENOSYS;
+		return -EOPNOTSUPP;
 	}
 
 	return 0;
 }
+
+int cnss_get_cx_mode(struct cnss_plat_data *plat_priv)
+{
+	u32 cx_mode_dt;
+	int ret;
+
+	cnss_pr_info("Entering cnss_get_cx_mode\n");
+
+	if (!plat_priv) {
+		cnss_pr_err("plat priv is null\n");
+		return -ENODEV;
+	}
+
+	ret  = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
+				    "cx-mode", &cx_mode_dt);
+	if (ret) {
+		cnss_pr_err("could not find cx mode\n");
+		return -EINVAL;
+	}
+
+	if (cx_mode_dt == CX_DATA_PIN_PMIC)
+		return cnss_get_cx_mode_sdam(plat_priv);
+	else if (cx_mode_dt == CX_DATA_PIN_PDC) {
+		//TODO: Add Hawi implementation
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
+int cnss_set_cxpc_power_on_off(struct cnss_plat_data *plat_priv,
+			       enum cxpc_status arg)
+{
+	u32 cx_mode_dt;
+	int ret;
+
+	cnss_pr_info("Entering cnss_set_cxpc_power_on_off\n");
+
+	if (!plat_priv) {
+		cnss_pr_err("plat priv is null\n");
+		return -ENODEV;
+	}
+
+	ret  = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
+				    "cx-mode", &cx_mode_dt);
+	if (ret) {
+		cnss_pr_err("could not find cx mode\n");
+		return -EINVAL;
+	}
+
+	if (cx_mode_dt == CX_DATA_PIN_PMIC)
+		return cnss_set_cxpc_sdam(plat_priv, arg);
+	else if (cx_mode_dt == CX_DATA_PIN_PDC) {
+		//TODO: Add Hawi implementation
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
+int cnss_set_cxpc(struct device *dev, enum cxpc_status arg)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	u32 cx_mode_dt;
+	int ret;
+
+	cnss_pr_info("Entering cnss_set_cxpc\n");
+
+	if (!plat_priv) {
+		cnss_pr_err("plat priv is null\n");
+		return -ENODEV;
+	}
+
+	if (plat_priv->device_id == FIG_DEVICE_ID)
+		goto out;
+
+	ret  = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
+				    "cx-mode", &cx_mode_dt);
+	if (ret) {
+		cnss_pr_err("could not find cx mode\n");
+		return -EINVAL;
+	}
+
+	if (cx_mode_dt == CX_DATA_PIN_PMIC)
+		return cnss_set_cxpc_sdam(plat_priv, arg);
+	else if (cx_mode_dt == CX_DATA_PIN_PDC) {
+		//TODO: Add Hawi implementation
+		return -EOPNOTSUPP;
+	}
+
+out:
+	return 0;
+}
+EXPORT_SYMBOL(cnss_set_cxpc);
 
 int cnss_get_cxpc(struct cnss_plat_data *plat_priv)
 {
@@ -2778,72 +2983,11 @@ int cnss_get_cxpc(struct cnss_plat_data *plat_priv)
 		return cnss_get_cxpc_sdam(plat_priv);
 	else if (cx_mode_dt == CX_DATA_PIN_PDC) {
 		//TODO: Add Hawi implementation
-		return -ENOSYS;
+		return -EOPNOTSUPP;
 	}
 
 	return 0;
 }
-
-int cnss_set_cxpc_power_off(struct cnss_plat_data *plat_priv,
-			    enum cxpc_status arg)
-{
-	u32 cx_mode_dt;
-	int ret;
-
-	cnss_pr_info("Entering cnss_set_cxpc_power_off\n");
-
-	if (!plat_priv) {
-		cnss_pr_err("plat priv is null\n");
-		return -ENODEV;
-	}
-
-	ret  = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
-				    "cx-mode", &cx_mode_dt);
-	if (ret) {
-		cnss_pr_err("could not find cx mode\n");
-		return -EINVAL;
-	}
-
-	if (cx_mode_dt == CX_DATA_PIN_PMIC)
-		return cnss_set_cxpc_sdam(plat_priv, arg);
-	else if (cx_mode_dt == CX_DATA_PIN_PDC) {
-		//TODO: Add Hawi implementation
-		return -ENOSYS;
-	}
-
-	return 0;
-}
-
-int cnss_set_cxpc(struct device *dev, enum cxpc_status arg)
-{
-	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
-	u32 cx_mode_dt;
-	int ret;
-
-	cnss_pr_info("Entering cnss_set_cxpc\n");
-
-	if (!plat_priv) {
-		cnss_pr_err("plat priv is null\n");
-		return -ENODEV;
-	}
-
-	ret  = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
-				    "cx-mode", &cx_mode_dt);
-	if (ret) {
-		cnss_pr_err("could not find cx mode\n");
-		return -EINVAL;
-	}
-
-	if (cx_mode_dt == CX_DATA_PIN_PMIC)
-		return cnss_set_cxpc_sdam(plat_priv, arg);
-	else if (cx_mode_dt == CX_DATA_PIN_PDC) {
-		//TODO: Add Hawi implementation
-		return -ENOSYS;
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(cnss_set_cxpc);
 
 int cnss_set_cx_voltage_corner(struct cnss_plat_data *plat_priv,
 			       enum cx_voltage_corners vc, u16 arg)
@@ -2869,7 +3013,7 @@ int cnss_set_cx_voltage_corner(struct cnss_plat_data *plat_priv,
 		return cnss_set_cx_voltage_corner_sdam(plat_priv, vc, arg);
 	else if (cx_mode_dt == CX_DATA_PIN_PDC) {
 		//TODO: Add Hawi implementation
-		return -ENOSYS;
+		return -EOPNOTSUPP;
 	}
 
 	return 0;
@@ -2902,6 +3046,46 @@ u8 *cnss_debug_direct_cx(struct cnss_plat_data *plat_priv)
 	}
 
 	return NULL;
+}
+
+int cnss_cx_voltage_corners_init(struct cnss_plat_data *plat_priv)
+{
+	int ret = 0;
+
+	ret = cnss_set_cx_voltage_corner(plat_priv,
+					 CX_NOM,
+					 (u16)NOM_VOLTAGE);
+	if (ret < 0) {
+		cnss_pr_err("Failed to write to NOM voltage corner\n");
+		goto out;
+	}
+
+	ret = cnss_set_cx_voltage_corner(plat_priv,
+					 CX_RET_V,
+					 (u16)RET_VOLTAGE);
+	if (ret < 0) {
+		cnss_pr_err("Failed to write to RET voltage corner\n");
+		goto out;
+	}
+
+	ret = cnss_set_cx_voltage_corner(plat_priv,
+					 CX_SVS,
+					 (u16)SVS_VOLTAGE);
+	if (ret < 0) {
+		cnss_pr_err("Failed to write to SVS voltage corner\n");
+		goto out;
+	}
+
+	ret = cnss_set_cx_voltage_corner(plat_priv,
+					 CX_SVSL1,
+					 (u16)SVS_L1_VOLTAGE);
+	if (ret < 0) {
+		cnss_pr_err("Failed to write to SVSL1 voltage corner\n");
+		goto out;
+	}
+
+out:
+	return ret;
 }
 
 static void cnss_deinit_sol_gpio(struct cnss_plat_data *plat_priv)
@@ -6147,39 +6331,10 @@ out:
 	return ret;
 }
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0))
-union cnss_device_group_devres {
-	const struct attribute_group *group;
-};
-
-static void devm_cnss_group_remove(struct device *dev, void *res)
-{
-	union cnss_device_group_devres *devres = res;
-	const struct attribute_group *group = devres->group;
-
-	cnss_pr_dbg("%s: removing group %p\n", __func__, group);
-	sysfs_remove_group(&dev->kobj, group);
-}
-
-static int devm_cnss_group_match(struct device *dev, void *res, void *data)
-{
-	return ((union cnss_device_group_devres *)res) == data;
-}
-
 static void cnss_remove_sysfs(struct cnss_plat_data *plat_priv)
 {
 	cnss_remove_sysfs_link(plat_priv);
-	WARN_ON(devres_release(&plat_priv->plat_dev->dev,
-			       devm_cnss_group_remove, devm_cnss_group_match,
-			       (void *)&cnss_attr_group));
 }
-#else
-static void cnss_remove_sysfs(struct cnss_plat_data *plat_priv)
-{
-	cnss_remove_sysfs_link(plat_priv);
-	devm_device_remove_group(&plat_priv->plat_dev->dev, &cnss_attr_group);
-}
-#endif
 
 static int cnss_event_work_init(struct cnss_plat_data *plat_priv)
 {
@@ -7063,6 +7218,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	plat_priv->dev_node = NULL;
 	plat_priv->device_id = device_id->driver_data;
 	plat_priv->dt_type = cnss_dt_type(plat_priv);
+	cnss_pr_info("Device id: 0x%lx\n", plat_priv->device_id);
 	cnss_pr_dbg("Probing platform driver from dt type: %d\n",
 		    plat_priv->dt_type);
 

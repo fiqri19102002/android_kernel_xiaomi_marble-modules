@@ -100,6 +100,10 @@ else
 KBUILD_CPPFLAGS += -DCONFIG_MHI_BUF_LEN=0x8000
 endif
 
+ifneq ($(filter y m,$(CONFIG_PCIE_QCOM_ECAM)),)
+KBUILD_CPPFLAGS += -DCONFIG_PCIE_QCOM_ECAM
+endif
+
 obj-$(CONFIG_CNSS2) += cnss2/
 obj-$(CONFIG_ICNSS2) += icnss2/
 obj-$(CONFIG_CNSS_GENL) += cnss_genl/

@@ -90,10 +90,9 @@
 				CNSS_EVENT_UNINTERRUPTIBLE)
 #define CNSS_EVENT_SYNC_UNKILLABLE (CNSS_EVENT_SYNC | CNSS_EVENT_UNKILLABLE)
 #define QMI_WLFW_MAX_TME_OPT_FILE_NUM 3
-#define TME_OEM_FUSE_FILE_NAME		"peach_sec.dat"
-#define TME_RPR_FILE_NAME		"peach_rpr.bin"
-#define TME_DPR_FILE_NAME		"peach_dpr.bin"
-#define CGN_TME_OEM_FUSE_FILE_NAME	"cologne_sec.dat"
+#define TME_OEM_FUSE_FILE_NAME		"%s_sec.dat"
+#define TME_RPR_FILE_NAME		"%s_rpr.bin"
+#define TME_DPR_FILE_NAME		"%s_dpr.bin"
 
 enum cx_modes {
 	CX_LEGACY = 0,
@@ -750,7 +749,7 @@ struct cnss_plat_data {
 	struct notifier_block pm_notifier;
 	struct cnss_xo_trim_config xo_trim_conf;
 	struct cnss_xdump_helper xdump_helper;
-	bool direct_cx_data_pin_mode;
+	int direct_cx_data_pin_mode;
 	int direct_cx_host_sol_gpio;
 #if IS_ENABLED(CONFIG_CNSS2_DIRECT_CX_SDAM)
 	struct nvmem_cell *nvmem_cell_wlan_data_pin_mode_en;
@@ -761,6 +760,7 @@ struct cnss_plat_data {
 	struct nvmem_cell *nvmem_cell_wlan_cx_nom_mv;
 	struct nvmem_cell *nvmem_cell_wlan_seq_debug;
 	struct nvmem_cell *nvmem_cell_wlan_seq_count;
+	struct regulator *cngo_pbs;
 #endif
 	struct cnss_wlan_host_param *host_param;
 };
@@ -896,14 +896,15 @@ void cnss_xdump_wl_over_bt_complete(struct cnss_plat_data *plat_priv,
 				    s32 result);
 int cnss_xdump_update_wl_cap(struct cnss_plat_data *plat_priv,
 			     u8 wl_over_bt, u8 bt_over_wl);
-
 int cnss_set_cx_mode(struct cnss_plat_data *plat_priv, enum cx_modes arg);
-int cnss_set_cxpc_power_off(struct cnss_plat_data *plat_priv,
-			    enum cxpc_status arg);
+int cnss_get_cx_mode(struct cnss_plat_data *plat_priv);
+int cnss_set_cxpc_power_on_off(struct cnss_plat_data *plat_priv,
+			       enum cxpc_status arg);
 int cnss_get_cxpc(struct cnss_plat_data *plat_priv);
 int cnss_set_cx_voltage_corner(struct cnss_plat_data *plat_priv,
 			       enum cx_voltage_corners vc, u16 arg);
 u8 *cnss_debug_direct_cx(struct cnss_plat_data *plat_priv);
+int cnss_cx_voltage_corners_init(struct cnss_plat_data *plat_priv);
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 15, 0))
 static inline int cnss_timer_delete(struct timer_list *timer)

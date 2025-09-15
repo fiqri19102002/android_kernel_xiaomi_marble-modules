@@ -4,6 +4,7 @@
 #include "pci_platform.h"
 #include "debug.h"
 #include <linux/pm.h>
+#include <linux/of_address.h>
 
 static struct cnss_msi_config msi_config = {
 	.total_vectors = 32,

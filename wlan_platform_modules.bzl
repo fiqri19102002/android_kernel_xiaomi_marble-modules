@@ -117,10 +117,17 @@ def _define_modules_for_target_variant(target, variant):
                ],
         })
 
-        if target != "x1e80100" and target != "sdxkova":
+        if target != "autogvm" and target != "x1e80100" and target != "sdxkova":
             deps += select({
                   "//build/kernel/kleaf:socrepo_true": [
                     "//vendor/qcom/opensource/securemsm-kernel:{}_smcinvoke_dlkm".format(tv),
+                ],
+                    "//build/kernel/kleaf:socrepo_false": [],
+            })
+
+        if target != "x1e80100" and target != "sdxkova":
+            deps += select({
+                  "//build/kernel/kleaf:socrepo_true": [
                     "//soc-repo:{}/kernel/trace/qcom_ipc_logging".format(tv),
                     "//soc-repo:{}/drivers/soc/qcom/qcom_ramdump".format(tv),
                     "//soc-repo:{}/drivers/soc/qcom/socinfo".format(tv),

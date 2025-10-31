@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
@@ -1491,13 +1491,18 @@ static ssize_t trusted_touch_device_path_show(struct kobject *kobj,
 	struct qts_data *qts_data;
 	char *path = NULL;
 	u32 idx = qts_ts_is_primary(kobj) ? 0 : 1;
+	int ret;
 
 	qts_data = &qts_data_entries->info[idx];
 
 	if (qts_data && qts_data->dev)
 		path = kobject_get_path(&qts_data->dev->kobj, GFP_KERNEL);
 
-	return scnprintf(buf, PAGE_SIZE, "%s", path ? path : "");
+	ret = scnprintf(buf, PAGE_SIZE, "%s", path ? path : "");
+
+	kfree(path);
+
+	return ret;
 }
 
 static struct kobj_attribute trusted_touch_enable_attr =

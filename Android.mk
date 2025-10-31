@@ -17,6 +17,14 @@ ifeq ($(TARGET_BOARD_PLATFORM), canoe)
       LOCAL_MODULE_DDK_BUILD := true
 endif
 
+ifeq ($(TARGET_BOARD_PLATFORM), bengal)
+      LOCAL_MODULE_DDK_BUILD := true
+endif
+
+ifeq ($(TARGET_BOARD_PLATFORM), chora)
+      LOCAL_MODULE_DDK_BUILD := true
+endif
+
 ifeq ($(TARGET_BOARD_PLATFORM), blair)
       LOCAL_MODULE_DDK_BUILD := true
 endif
@@ -26,6 +34,10 @@ ifeq ($(TARGET_BOARD_PLATFORM), lahaina)
 endif
 
 ifeq ($(TARGET_BOARD_PLATFORM), vienna)
+      LOCAL_MODULE_DDK_BUILD := true
+endif
+
+ifeq ($(TARGET_BOARD_PLATFORM), art)
       LOCAL_MODULE_DDK_BUILD := true
 endif
 
@@ -78,6 +90,17 @@ ifeq ($(TARGET_BOARD_PLATFORM), vienna)
        LOCAL_SRC_FILES   := $(wildcard $(LOCAL_PATH)/**/*) $(wildcard $(LOCAL_PATH)/*)
        LOCAL_MODULE              := raydium_ts.ko
        LOCAL_MODULE_KBUILD_NAME  := raydium_ts.ko
+       LOCAL_MODULE_TAGS         := optional
+       #LOCAL_MODULE_DEBUG_ENABLE := true
+       LOCAL_MODULE_PATH         := $(KERNEL_MODULES_OUT)
+       include $(DLKM_DIR)/Build_external_kernelmodule.mk
+       ###########################################################
+
+       ###########################################################
+       include $(CLEAR_VARS)
+       LOCAL_SRC_FILES   := $(wildcard $(LOCAL_PATH)/**/*) $(wildcard $(LOCAL_PATH)/*)
+       LOCAL_MODULE              := glink_comm.ko
+       LOCAL_MODULE_KBUILD_NAME  := glink_comm.ko
        LOCAL_MODULE_TAGS         := optional
        #LOCAL_MODULE_DEBUG_ENABLE := true
        LOCAL_MODULE_PATH         := $(KERNEL_MODULES_OUT)
@@ -227,6 +250,41 @@ else ifeq ($(TARGET_BOARD_PLATFORM), canoe)
        LOCAL_SRC_FILES   := $(wildcard $(LOCAL_PATH)/**/*) $(wildcard $(LOCAL_PATH)/*)
        LOCAL_MODULE              := goodix_ts.ko
        LOCAL_MODULE_KBUILD_NAME  := goodix_ts.ko
+       LOCAL_MODULE_TAGS         := optional
+       #LOCAL_MODULE_DEBUG_ENABLE := true
+       LOCAL_MODULE_PATH         := $(KERNEL_MODULES_OUT)
+       include $(DLKM_DIR)/Build_external_kernelmodule.mk
+       ###########################################################
+
+else ifeq ($(TARGET_BOARD_PLATFORM), chora)
+
+       ###########################################################
+       include $(CLEAR_VARS)
+       LOCAL_SRC_FILES   := $(wildcard $(LOCAL_PATH)/**/*) $(wildcard $(LOCAL_PATH)/*)
+       LOCAL_MODULE              := qts.ko
+       LOCAL_MODULE_KBUILD_NAME  := qts.ko
+       LOCAL_MODULE_TAGS         := optional
+       #LOCAL_MODULE_DEBUG_ENABLE := true
+       LOCAL_MODULE_PATH         := $(KERNEL_MODULES_OUT)
+       include $(DLKM_DIR)/Build_external_kernelmodule.mk
+       ###########################################################
+
+       ###########################################################
+       include $(CLEAR_VARS)
+       LOCAL_SRC_FILES   := $(wildcard $(LOCAL_PATH)/**/*) $(wildcard $(LOCAL_PATH)/*)
+       LOCAL_MODULE              := goodix_ts.ko
+       LOCAL_MODULE_KBUILD_NAME  := goodix_ts.ko
+       LOCAL_MODULE_TAGS         := optional
+       #LOCAL_MODULE_DEBUG_ENABLE := true
+       LOCAL_MODULE_PATH         := $(KERNEL_MODULES_OUT)
+       include $(DLKM_DIR)/Build_external_kernelmodule.mk
+       ###########################################################
+
+       ###########################################################
+       include $(CLEAR_VARS)
+       LOCAL_SRC_FILES   := $(wildcard $(LOCAL_PATH)/**/*) $(wildcard $(LOCAL_PATH)/*)
+       LOCAL_MODULE              := focaltech_fts.ko
+       LOCAL_MODULE_KBUILD_NAME  := focaltech_fts.ko
        LOCAL_MODULE_TAGS         := optional
        #LOCAL_MODULE_DEBUG_ENABLE := true
        LOCAL_MODULE_PATH         := $(KERNEL_MODULES_OUT)

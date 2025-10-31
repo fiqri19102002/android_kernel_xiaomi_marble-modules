@@ -10,7 +10,8 @@ endif
 
 ifeq ($(TOUCH_DLKM_ENABLE),  true)
         ifeq ($(TARGET_BOARD_PLATFORM), vienna)
-                PRODUCT_PACKAGES += $(KERNEL_MODULES_OUT)/raydium_ts.ko
+                PRODUCT_PACKAGES += $(KERNEL_MODULES_OUT)/raydium_ts.ko \
+                        $(KERNEL_MODULES_OUT)/glink_comm.ko
         else ifeq ($(TARGET_BOARD_PLATFORM), monaco)
                 PRODUCT_PACKAGES += $(KERNEL_MODULES_OUT)/pt_ts.ko \
                         $(KERNEL_MODULES_OUT)/pt_i2c.ko \
@@ -28,6 +29,10 @@ ifeq ($(TOUCH_DLKM_ENABLE),  true)
                 PRODUCT_PACKAGES += $(KERNEL_MODULES_OUT)/goodix_ts.ko \
                         $(KERNEL_MODULES_OUT)/atmel_mxt_ts.ko \
                         $(KERNEL_MODULES_OUT)/st_fts.ko \
+                        $(KERNEL_MODULES_OUT)/qts.ko
+        else ifeq ($(TARGET_BOARD_PLATFORM), chora)
+                PRODUCT_PACKAGES += $(KERNEL_MODULES_OUT)/goodix_ts.ko \
+                        $(KERNEL_MODULES_OUT)/focaltech_fts.ko \
                         $(KERNEL_MODULES_OUT)/qts.ko
         else ifeq ($(TARGET_BOARD_PLATFORM), pineapple)
                 PRODUCT_PACKAGES += $(KERNEL_MODULES_OUT)/goodix_ts.ko \

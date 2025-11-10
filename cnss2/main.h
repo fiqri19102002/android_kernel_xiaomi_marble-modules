@@ -392,6 +392,7 @@ enum cnss_driver_state {
 	CNSS_SHUTDOWN_DEVICE,
 	CNSS_POWERING_ON,
 	CNSS_SEC_DOWNLOAD,
+	CNSS_RADIO_OFF,
 };
 
 struct cnss_recovery_data {

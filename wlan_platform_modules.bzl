@@ -9,7 +9,7 @@ _default_module_enablement_list = [
     "wlan_firmware_service",
 ]
 
-_cnss2_enabled_target = ["seraph", "niobe", "pineapple", "sun", "x1e80100", "volcano", "canoe", "sdxkova", "autogvm", "autoghgvm", "lahaina"]
+_cnss2_enabled_target = ["seraph", "niobe", "pineapple", "sun", "x1e80100", "volcano", "canoe", "sdxkova", "autogvm", "autoghgvm", "lahaina", "parrot"]
 _icnss2_enabled_target = ["blair", "pineapple", "monaco", "pitti", "volcano", "parrot", "sun", "canoe", "lahaina"]
 
 def _get_module_list(target, variant):
@@ -78,8 +78,8 @@ def _define_modules_for_target_variant(target, variant):
     tv = "{}_{}".format(target, variant)
 
     kernel_build = select({
-        "//build/kernel/kleaf:socrepo_true": "//soc-repo:{}_base_kernel".format(tv),
-        "//build/kernel/kleaf:socrepo_false": "//msm-kernel:{}".format(tv),
+        "//build/qcom_build_extensions:qtisocrepo_true": "//soc-repo:{}_base_kernel".format(tv),
+        "//build/qcom_build_extensions:qtisocrepo_false": "//msm-kernel:{}".format(tv),
     })
 
     cnss2_enabled = 0
@@ -108,26 +108,26 @@ def _define_modules_for_target_variant(target, variant):
                 ":{}_cnss_plat_ipc_qmi_svc".format(tv),
             ]
         deps += select({
-               "//build/kernel/kleaf:socrepo_true": [
+               "//build/qcom_build_extensions:qtisocrepo_true": [
                   "//soc-repo:all_headers",
                   "//soc-repo:{}/drivers/soc/qcom/qmi_helpers".format(tv),
                ],
-               "//build/kernel/kleaf:socrepo_false": [
+               "//build/qcom_build_extensions:qtisocrepo_false": [
                   "//msm-kernel:all_headers",
                ],
         })
 
         if target != "autogvm" and target != "x1e80100" and target != "sdxkova":
             deps += select({
-                  "//build/kernel/kleaf:socrepo_true": [
+                  "//build/qcom_build_extensions:qtisocrepo_true": [
                     "//vendor/qcom/opensource/securemsm-kernel:{}_smcinvoke_dlkm".format(tv),
                 ],
-                    "//build/kernel/kleaf:socrepo_false": [],
+                    "//build/qcom_build_extensions:qtisocrepo_false": [],
             })
 
         if target != "x1e80100" and target != "sdxkova":
             deps += select({
-                  "//build/kernel/kleaf:socrepo_true": [
+                  "//build/qcom_build_extensions:qtisocrepo_true": [
                     "//soc-repo:{}/kernel/trace/qcom_ipc_logging".format(tv),
                     "//soc-repo:{}/drivers/soc/qcom/qcom_ramdump".format(tv),
                     "//soc-repo:{}/drivers/soc/qcom/socinfo".format(tv),
@@ -141,13 +141,13 @@ def _define_modules_for_target_variant(target, variant):
                     "//soc-repo:{}/drivers/soc/qcom/qcom_aoss".format(tv),
                     "//soc-repo:{}/drivers/pci/controller/pci-msm-drv".format(tv),
                 ],
-                    "//build/kernel/kleaf:socrepo_false": [],
+                    "//build/qcom_build_extensions:qtisocrepo_false": [],
             })
             deps += select({
-                  "//build/kernel/kleaf:socrepo_true": [
+                  "//build/qcom_build_extensions:qtisocrepo_true": [
                     "//soc-repo:{}/drivers/soc/qcom/minidump".format(tv),
                 ],
-                    "//build/kernel/kleaf:socrepo_false": [],
+                    "//build/qcom_build_extensions:qtisocrepo_false": [],
             })
         ddk_module(
             name = "{}_cnss2".format(tv),
@@ -193,7 +193,7 @@ def _define_modules_for_target_variant(target, variant):
         _define_platform_config_rule(module, target, variant)
         defconfig = ":{}/{}_defconfig_generate_{}".format(module, tv, variant)
         deps = select({
-               "//build/kernel/kleaf:socrepo_true": [
+               "//build/qcom_build_extensions:qtisocrepo_true": [
                 "//soc-repo:all_headers",
                 "//soc-repo:{}/kernel/trace/qcom_ipc_logging".format(tv),
                 "//soc-repo:{}/drivers/soc/qcom/qcom_ramdump".format(tv),
@@ -204,7 +204,7 @@ def _define_modules_for_target_variant(target, variant):
                 "//soc-repo:{}/drivers/pinctrl/qcom/pinctrl-msm".format(tv),
                 "//soc-repo:{}/drivers/soc/qcom/qcom_aoss".format(tv),
                ],
-               "//build/kernel/kleaf:socrepo_false": [
+               "//build/qcom_build_extensions:qtisocrepo_false": [
                   "//msm-kernel:all_headers",
                ],
         })
@@ -243,8 +243,8 @@ def _define_modules_for_target_variant(target, variant):
     defconfig = ":{}/{}_defconfig_generate_{}".format(module, tv, variant)
 
     deps = select({
-        "//build/kernel/kleaf:socrepo_true": ["//soc-repo:all_headers"],
-        "//build/kernel/kleaf:socrepo_false": ["//msm-kernel:all_headers"],
+        "//build/qcom_build_extensions:qtisocrepo_true": ["//soc-repo:all_headers"],
+        "//build/qcom_build_extensions:qtisocrepo_false": ["//msm-kernel:all_headers"],
     })
 
     ddk_module(
@@ -286,8 +286,8 @@ def _define_modules_for_target_variant(target, variant):
     ]
 
     cnss_utils_dep_list += select({
-        "//build/kernel/kleaf:socrepo_true": ["//soc-repo:all_headers"],
-        "//build/kernel/kleaf:socrepo_false": ["//msm-kernel:all_headers"],
+        "//build/qcom_build_extensions:qtisocrepo_true": ["//soc-repo:all_headers"],
+        "//build/qcom_build_extensions:qtisocrepo_false": ["//msm-kernel:all_headers"],
     })
 
     if target == "sun" or target == "canoe":
@@ -316,11 +316,11 @@ def _define_modules_for_target_variant(target, variant):
     defconfig = ":{}/{}_defconfig_generate_{}".format(module, tv, variant)
 
     deps = select({
-        "//build/kernel/kleaf:socrepo_true": [
+        "//build/qcom_build_extensions:qtisocrepo_true": [
             "//soc-repo:all_headers",
             "//soc-repo:{}/drivers/soc/qcom/qmi_helpers".format(tv),
         ],
-        "//build/kernel/kleaf:socrepo_false": ["//msm-kernel:all_headers"],
+        "//build/qcom_build_extensions:qtisocrepo_false": ["//msm-kernel:all_headers"],
     })
 
     ddk_module(
@@ -343,12 +343,12 @@ def _define_modules_for_target_variant(target, variant):
 
     if plat_ipc_qmi_svc_enabled:
       deps = select({
-          "//build/kernel/kleaf:socrepo_true": [
+          "//build/qcom_build_extensions:qtisocrepo_true": [
               "//soc-repo:all_headers",
               "//soc-repo:{}/drivers/soc/qcom/qmi_helpers".format(tv),
               "//soc-repo:{}/kernel/trace/qcom_ipc_logging".format(tv),
           ],
-          "//build/kernel/kleaf:socrepo_false": ["//msm-kernel:all_headers"],
+          "//build/qcom_build_extensions:qtisocrepo_false": ["//msm-kernel:all_headers"],
       })
 
       ddk_module(

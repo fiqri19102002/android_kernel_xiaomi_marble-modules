@@ -104,6 +104,10 @@ ifneq ($(filter y m,$(CONFIG_PCIE_QCOM_ECAM)),)
 KBUILD_CPPFLAGS += -DCONFIG_PCIE_QCOM_ECAM
 endif
 
+ifeq ($(CONFIG_PINCTRL_MSM_NO_EXT),y)
+KBUILD_CPPFLAGS += -DCONFIG_PINCTRL_MSM_NO_EXT
+endif
+
 obj-$(CONFIG_CNSS2) += cnss2/
 obj-$(CONFIG_ICNSS2) += icnss2/
 obj-$(CONFIG_CNSS_GENL) += cnss_genl/

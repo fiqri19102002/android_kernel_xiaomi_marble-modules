@@ -9,7 +9,7 @@
 #include <linux/of.h>
 #include <linux/of_gpio.h>
 #include <linux/pinctrl/consumer.h>
-#if IS_ENABLED(CONFIG_PINCTRL_MSM)
+#if IS_ENABLED(CONFIG_PINCTRL_MSM) && !IS_ENABLED(CONFIG_PINCTRL_MSM_NO_EXT)
 #include <linux/pinctrl/qcom-pinctrl.h>
 #endif
 #include <linux/regulator/consumer.h>
@@ -804,7 +804,7 @@ static int cnss_clk_off(struct cnss_plat_data *plat_priv,
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_PINCTRL_MSM)
+#if IS_ENABLED(CONFIG_PINCTRL_MSM) && !IS_ENABLED(CONFIG_PINCTRL_MSM_NO_EXT)
 static void cnss_set_wakeup_cap_for_gpios(struct device *dev)
 {
 	int ret;

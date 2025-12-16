@@ -193,6 +193,10 @@ struct aw882xx {
 
 	int reset_gpio;
 	int irq_gpio;
+
+	int spksw_gpio;
+	int spksw_level;
+
 	unsigned char fw_status;
 	unsigned char fw_retry_cnt;
 	unsigned char rw_reg_addr;	/* rw attr node store read addr */
@@ -214,6 +218,8 @@ struct aw882xx {
 	struct delayed_work fw_work;
 
 	struct mutex lock;
+	int dsm_state;
+	int widget_pos;
 };
 
 int aw882xx_init(struct aw_device *aw_pa);

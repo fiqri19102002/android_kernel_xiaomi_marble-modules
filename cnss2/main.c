@@ -88,12 +88,33 @@
 #define CNSS_CAL_START_PROBE_WAIT_MS	500
 #define CNSS_TIME_SYNC_PERIOD_INVALID	0xFFFFFFFF
 #define CPUMASK_ARRAY_SIZE		2
-#define MAX_SYSFS_USER_COMMAND_SIZE_LENGTH (5)
+#define MAX_SYSFS_USER_COMMAND_SIZE_LENGTH 5
 #define XDUMP_TIMEOUT_MS	20000
+#if IS_ENABLED(CONFIG_CNSS2_DIRECT_CX_SDAM)
 #define NOM_VOLTAGE			0x37A /* 890mV */
-#define SVS_VOLTAGE			0x258 /* 600mV */
-#define SVS_L1_VOLTAGE			0x28A /* 650mV */
+#define SVS_VOLTAGE			0x276 /* 630mV */
+#define SVS_L1_VOLTAGE			0x2AD /* 685mV */
 #define RET_VOLTAGE			0x15E /* 350mV */
+#else
+#define NOM_VOLTAGE			0x37C /* 892mV */
+#define SVS_VOLTAGE			0x2B4 /* 692mV */
+#define SVS_L1_VOLTAGE			0x318 /* 792mV */
+#define RET_VOLTAGE			0x19C /* 412mV */
+#endif
+#define RAIL_VOLTAGE_LEVEL_RET		0x10   // 16
+#define RAIL_VOLTAGE_LEVEL_SVS		0x80   // 128
+#define RAIL_VOLTAGE_LEVEL_SVS_L1	0xC0   // 192
+#define RAIL_VOLTAGE_LEVEL_NOM		0x100  // 256
+
+#define TSF_SYNC_GPIO		"qcom,wlan-tsf-gpio"
+#define TSF_IRQ_TS		"tsf_irq_ts"
+
+#define TSF_IRQ_TS_OP_VALID	BIT(0)
+#define TSF_IRQ_TS_OP_OVERFLOW	BIT(8)
+
+#define TSF_IRQ_TS_OP_OFFSET	0x0
+#define TSF_IRQ_TS_LO_OFFSET	0x4
+#define TSF_IRQ_TS_HI_OFFSET	0x8
 
 enum cnss_cal_db_op {
 	CNSS_CAL_DB_UPLOAD,
@@ -1189,20 +1210,25 @@ static int cnss_fw_mem_ready_hdlr(struct cnss_plat_data *plat_priv)
 	if (ret)
 		goto out;
 
-	cnss_bus_load_tme_patch(plat_priv);
+	if (plat_priv->device_id == FIG_DEVICE_ID) {
 
-	cnss_wlfw_tme_patch_dnld_send_sync(plat_priv,
-					   WLFW_TME_LITE_PATCH_FILE_V01);
+		ret = cnss_bus_load_tme_patch(plat_priv);
+		if (!ret)
+		    cnss_wlfw_tme_patch_dnld_send_sync(plat_priv,
+				WLFW_TME_LITE_PATCH_FILE_V01);
 
-	if (test_bit(CNSS_SEC_DOWNLOAD, &plat_priv->driver_state)) {
-		cnss_bus_load_tme_opt_file(plat_priv, WLFW_TME_LITE_OEM_FUSE_FILE_V01);
-		cnss_wlfw_tme_opt_file_dnld_send_sync(plat_priv, WLFW_TME_LITE_OEM_FUSE_FILE_V01);
+		if (test_bit(CNSS_SEC_DOWNLOAD, &plat_priv->driver_state)) {
 
-		clear_bit(CNSS_SEC_DOWNLOAD, &plat_priv->driver_state);
+			cnss_bus_load_tme_opt_file(plat_priv, WLFW_TME_LITE_OEM_FUSE_FILE_V01);
+			cnss_wlfw_tme_opt_file_dnld_send_sync(plat_priv, WLFW_TME_LITE_OEM_FUSE_FILE_V01);
+
+			clear_bit(CNSS_SEC_DOWNLOAD, &plat_priv->driver_state);
+		}
+
+		ret = cnss_bus_load_sku_license(plat_priv);
+		if (!ret)
+		    cnss_wlfw_soft_sku_dnld_send_sync(plat_priv);
 	}
-	ret = cnss_bus_load_sku_license(plat_priv);
-	if (!ret)
-		cnss_wlfw_soft_sku_dnld_send_sync(plat_priv);
 
 	if (plat_priv->hds_enabled)
 		cnss_wlfw_bdf_dnld_send_sync(plat_priv, CNSS_BDF_HDS);
@@ -1900,7 +1926,7 @@ static void cnss_xo_trim_deinit(struct cnss_plat_data *plat_priv)
  *
  * Return: 0 on success, errno otherwise
  */
-static int cnss_xo_trim_perform(struct cnss_xo_trim_config *xo_trim_conf)
+int cnss_xo_trim_perform(struct cnss_xo_trim_config *xo_trim_conf)
 {
 	int ret;
 
@@ -2242,6 +2268,12 @@ int cnss_set_host_sol_value(struct cnss_plat_data *plat_priv, int value)
 {
 	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
 
+	if (plat_priv->device_id == FIG_DEVICE_ID) {
+		cnss_pr_info("Normal host sol not supported for: 0x%lx\n",
+			     plat_priv->device_id);
+		return -EINVAL;
+	}
+
 	if (sol_gpio->host_sol_gpio < 0)
 		return -EINVAL;
 
@@ -2255,6 +2287,12 @@ int cnss_set_host_sol_value(struct cnss_plat_data *plat_priv, int value)
 int cnss_get_host_sol_value(struct cnss_plat_data *plat_priv)
 {
 	struct cnss_sol_gpio *sol_gpio = &plat_priv->sol_gpio;
+
+	if (plat_priv->device_id == FIG_DEVICE_ID) {
+		cnss_pr_info("Reject setting normal host sol for: 0x%lx\n",
+			     plat_priv->device_id);
+		return -EINVAL;
+	}
 
 	if (sol_gpio->host_sol_gpio < 0)
 		return -EINVAL;
@@ -2416,7 +2454,6 @@ static void cnss_deinit_direct_cx_host_sol_gpio(struct cnss_plat_data *plat_priv
 }
 #endif
 
-#if IS_ENABLED(CONFIG_CNSS2_DIRECT_CX_SDAM)
 static char *cnss_get_cx_voltage_corner(enum cx_voltage_corners vc)
 {
 	switch (vc) {
@@ -2435,6 +2472,7 @@ static char *cnss_get_cx_voltage_corner(enum cx_voltage_corners vc)
 	return "Invalid";
 }
 
+#if IS_ENABLED(CONFIG_CNSS2_DIRECT_CX_SDAM)
 static int cnss_get_cx_mode_sdam(struct cnss_plat_data *plat_priv)
 {
 	size_t len;
@@ -2836,12 +2874,58 @@ static int cnss_get_nvmem_cells(struct cnss_plat_data *plat_priv)
 	return 0;
 }
 #endif
+static int cnss_set_cx_mode_pdc(struct cnss_plat_data *plat_priv,
+				enum cx_modes arg)
+{
+	char pdc_mode[CNSS_MBOX_MSG_MAX_LEN] = {0x00};
+	int ret = 0;
+	int enable_scaling = 0;
+
+	cnss_pr_info("Entering cnss_set_cx_mode_pdc\n");
+
+	/* Determine scaling enable/disable based on cx_modes arg input */
+	switch (arg) {
+	case CX_LEGACY:
+		/* Legacy mode - disable scaling */
+		enable_scaling = 0;
+		cnss_pr_info("CX Legacy mode - disabling scaling\n");
+		break;
+	case CX_DATA_PIN:
+		/* Data pin mode - enable scaling */
+		enable_scaling = 1;
+		cnss_pr_info("CX Data pin mode - enabling scaling\n");
+		break;
+	default:
+		cnss_pr_err("Invalid CX mode: %d\n", arg);
+		return -EINVAL;
+	}
+
+	if (plat_priv->device_id == FIG_DEVICE_ID) {
+		cnss_pr_info("%s PDC scaling for WLAN CX on device: %d, mode: %d\n",
+			     enable_scaling ? "Enabling" : "Disabling",
+			     plat_priv->device_id, arg);
+
+		snprintf(pdc_mode, CNSS_MBOX_MSG_MAX_LEN,
+			 "{class: wlan_pdc, ss: bb, res: scaling, enable: %d}",
+			 enable_scaling);
+		ret = cnss_aop_send_msg(plat_priv, pdc_mode);
+		if (ret < 0) {
+			cnss_pr_err("Failed to send PDC mode message: %d\n", ret);
+			return ret;
+		}
+
+		cnss_pr_dbg("PDC scaling %s successfully for mode %d\n",
+			    enable_scaling ? "enabled" : "disabled", arg);
+	} else {
+		cnss_pr_dbg("PDC scaling control not supported for device: %d\n",
+			    plat_priv->device_id);
+	}
+
+	return 0;
+}
 
 int cnss_set_cx_mode(struct cnss_plat_data *plat_priv, enum cx_modes arg)
 {
-	u32 cx_mode_dt;
-	int ret;
-
 	cnss_pr_info("Entering cnss_set_cx_mode\n");
 
 	if (!plat_priv) {
@@ -2849,18 +2933,10 @@ int cnss_set_cx_mode(struct cnss_plat_data *plat_priv, enum cx_modes arg)
 		return -ENODEV;
 	}
 
-	ret  = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
-				    "cx-mode", &cx_mode_dt);
-	if (ret) {
-		cnss_pr_err("could not find cx mode\n");
-		return -EINVAL;
-	}
-
-	if (cx_mode_dt == CX_DATA_PIN_PMIC)
+	if (plat_priv->cx_mode == CX_DATA_PIN_PMIC)
 		return cnss_set_cx_mode_sdam(plat_priv, arg);
-	else if (cx_mode_dt == CX_DATA_PIN_PDC) {
-		//TODO: Add Hawi implementation
-		return -EOPNOTSUPP;
+	else if (plat_priv->cx_mode == CX_DATA_PIN_PDC) {
+		return cnss_set_cx_mode_pdc(plat_priv, arg);
 	}
 
 	return 0;
@@ -2868,9 +2944,6 @@ int cnss_set_cx_mode(struct cnss_plat_data *plat_priv, enum cx_modes arg)
 
 int cnss_get_cx_mode(struct cnss_plat_data *plat_priv)
 {
-	u32 cx_mode_dt;
-	int ret;
-
 	cnss_pr_info("Entering cnss_get_cx_mode\n");
 
 	if (!plat_priv) {
@@ -2878,18 +2951,63 @@ int cnss_get_cx_mode(struct cnss_plat_data *plat_priv)
 		return -ENODEV;
 	}
 
-	ret  = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
-				    "cx-mode", &cx_mode_dt);
-	if (ret) {
-		cnss_pr_err("could not find cx mode\n");
+	if (plat_priv->cx_mode == CX_DATA_PIN_PMIC)
+		return cnss_get_cx_mode_sdam(plat_priv);
+	else if (plat_priv->cx_mode == CX_DATA_PIN_PDC) {
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
+static int cnss_set_cxpc_pdc(struct cnss_plat_data *plat_priv,
+			      enum cxpc_status arg)
+{
+	char pdc_mode[CNSS_MBOX_MSG_MAX_LEN] = {0x00};
+	int ret = 0;
+	int enable_collapse = 0;
+
+	cnss_pr_info("Entering cnss_set_cxpc_pdc\n");
+
+	/* Determine CX collapse enable/disable
+	 * based on cxpc_status arg input
+	 */
+	switch (arg) {
+	case CX_RET:
+		/* Active mode - disable collapse */
+		enable_collapse = 0;
+		cnss_pr_info("CX Active mode - disabling collapse\n");
+		break;
+	case CX_OFF:
+		/* Suspend mode - enable collapse */
+		enable_collapse = 1;
+		cnss_pr_info("CX Suspend mode - enabling collapse\n");
+		break;
+	default:
+		cnss_pr_err("Invalid CX Power mode: %d\n", arg);
 		return -EINVAL;
 	}
 
-	if (cx_mode_dt == CX_DATA_PIN_PMIC)
-		return cnss_get_cx_mode_sdam(plat_priv);
-	else if (cx_mode_dt == CX_DATA_PIN_PDC) {
-		//TODO: Add Hawi implementation
-		return -EOPNOTSUPP;
+	if (plat_priv->device_id == FIG_DEVICE_ID) {
+		cnss_pr_info("Enabling %s for WLAN CX on device: %d, mode: %d\n",
+			     enable_collapse ? "collapse" : "retention",
+			     plat_priv->device_id, arg);
+
+		snprintf(pdc_mode, CNSS_MBOX_MSG_MAX_LEN,
+			 "{class: wlan_pdc, ss: bb, res: s1j1.e, enable: %d, vlvl: %d}",
+			 enable_collapse, RAIL_VOLTAGE_LEVEL_RET);
+		ret = cnss_aop_send_msg(plat_priv, pdc_mode);
+		if (ret < 0) {
+			cnss_pr_err("Failed to send PDC mode message: %d\n", ret);
+			return ret;
+		}
+
+		cnss_pr_dbg("%s enabled successfully for mode %d\n",
+			    enable_collapse ? "Collapse" : "Retention",
+			    arg);
+	} else {
+		cnss_pr_dbg("CXPC/ret control not supported for device: %d\n",
+			    plat_priv->device_id);
 	}
 
 	return 0;
@@ -2898,9 +3016,6 @@ int cnss_get_cx_mode(struct cnss_plat_data *plat_priv)
 int cnss_set_cxpc_power_on_off(struct cnss_plat_data *plat_priv,
 			       enum cxpc_status arg)
 {
-	u32 cx_mode_dt;
-	int ret;
-
 	cnss_pr_info("Entering cnss_set_cxpc_power_on_off\n");
 
 	if (!plat_priv) {
@@ -2908,18 +3023,10 @@ int cnss_set_cxpc_power_on_off(struct cnss_plat_data *plat_priv,
 		return -ENODEV;
 	}
 
-	ret  = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
-				    "cx-mode", &cx_mode_dt);
-	if (ret) {
-		cnss_pr_err("could not find cx mode\n");
-		return -EINVAL;
-	}
-
-	if (cx_mode_dt == CX_DATA_PIN_PMIC)
+	if (plat_priv->cx_mode == CX_DATA_PIN_PMIC)
 		return cnss_set_cxpc_sdam(plat_priv, arg);
-	else if (cx_mode_dt == CX_DATA_PIN_PDC) {
-		//TODO: Add Hawi implementation
-		return -EOPNOTSUPP;
+	else if (plat_priv->cx_mode == CX_DATA_PIN_PDC) {
+		return cnss_set_cxpc_pdc(plat_priv, arg);
 	}
 
 	return 0;
@@ -2928,8 +3035,6 @@ int cnss_set_cxpc_power_on_off(struct cnss_plat_data *plat_priv,
 int cnss_set_cxpc(struct device *dev, enum cxpc_status arg)
 {
 	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
-	u32 cx_mode_dt;
-	int ret;
 
 	cnss_pr_info("Entering cnss_set_cxpc\n");
 
@@ -2938,33 +3043,18 @@ int cnss_set_cxpc(struct device *dev, enum cxpc_status arg)
 		return -ENODEV;
 	}
 
-	if (plat_priv->device_id == FIG_DEVICE_ID)
-		goto out;
-
-	ret  = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
-				    "cx-mode", &cx_mode_dt);
-	if (ret) {
-		cnss_pr_err("could not find cx mode\n");
-		return -EINVAL;
-	}
-
-	if (cx_mode_dt == CX_DATA_PIN_PMIC)
+	if (plat_priv->cx_mode == CX_DATA_PIN_PMIC)
 		return cnss_set_cxpc_sdam(plat_priv, arg);
-	else if (cx_mode_dt == CX_DATA_PIN_PDC) {
-		//TODO: Add Hawi implementation
-		return -EOPNOTSUPP;
+	else if (plat_priv->cx_mode == CX_DATA_PIN_PDC) {
+		return cnss_set_cxpc_pdc(plat_priv, arg);
 	}
 
-out:
 	return 0;
 }
 EXPORT_SYMBOL(cnss_set_cxpc);
 
 int cnss_get_cxpc(struct cnss_plat_data *plat_priv)
 {
-	u32 cx_mode_dt;
-	int ret;
-
 	cnss_pr_info("Entering cnss_get_cxpc\n");
 
 	if (!plat_priv) {
@@ -2972,18 +3062,129 @@ int cnss_get_cxpc(struct cnss_plat_data *plat_priv)
 		return -ENODEV;
 	}
 
-	ret  = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
-				    "cx-mode", &cx_mode_dt);
-	if (ret) {
-		cnss_pr_err("could not find cx mode\n");
+	if (plat_priv->cx_mode == CX_DATA_PIN_PMIC)
+		return cnss_get_cxpc_sdam(plat_priv);
+	else if (plat_priv->cx_mode == CX_DATA_PIN_PDC) {
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
+static int cnss_set_cx_voltage_corner_pdc(struct cnss_plat_data *plat_priv,
+					  enum cx_voltage_corners vc, u16 arg)
+{
+	char pdc_voltage[CNSS_MBOX_MSG_MAX_LEN] = {0x00};
+	int ret = 0;
+	int voltage_level = 0;
+
+	cnss_pr_info("Entering cnss_set_cx_voltage_corner_pdc\n");
+
+	/* Determine CX voltage corner to update
+	 * based on vc input
+	 */
+	switch (vc) {
+	case CX_NOM:
+		/* CX Nominal voltage corner */
+		voltage_level = RAIL_VOLTAGE_LEVEL_NOM;
+		cnss_pr_info("CX Active mode - disabling collapse\n");
+		break;
+	case CX_SVSL1:
+		/* CX SVS L1 voltage corner */
+		voltage_level = RAIL_VOLTAGE_LEVEL_SVS_L1;
+		cnss_pr_info("CX Suspend mode - enabling collapse\n");
+		break;
+	case CX_SVS:
+		/* CX SVS voltage corner */
+		voltage_level = RAIL_VOLTAGE_LEVEL_SVS;
+		cnss_pr_info("CX Active mode - disabling collapse\n");
+		break;
+	case CX_RET_V:
+		/* CX Retention voltage corner */
+		voltage_level = RAIL_VOLTAGE_LEVEL_RET;
+		cnss_pr_info("CX Suspend mode - enabling collapse\n");
+		break;
+	default:
+		cnss_pr_err("Invalid CX voltage corner: %d\n", vc);
 		return -EINVAL;
 	}
 
-	if (cx_mode_dt == CX_DATA_PIN_PMIC)
-		return cnss_get_cxpc_sdam(plat_priv);
-	else if (cx_mode_dt == CX_DATA_PIN_PDC) {
-		//TODO: Add Hawi implementation
-		return -EOPNOTSUPP;
+	if (plat_priv->device_id == FIG_DEVICE_ID) {
+		cnss_pr_info("Updating CX %s voltage corner to 0.%dV\n",
+			     cnss_get_cx_voltage_corner(vc), arg);
+
+		snprintf(pdc_voltage, CNSS_MBOX_MSG_MAX_LEN,
+			 "{class: wlan_pdc, ss: bb, res: s1j1.v, upval: %d, vlvl: %d}",
+			 arg, voltage_level);
+		ret = cnss_aop_send_msg(plat_priv, pdc_voltage);
+		if (ret < 0) {
+			cnss_pr_err("Failed to send PDC mode message: %d\n", ret);
+			return ret;
+		}
+
+		cnss_pr_info("Successfully wrote val 0.%dV into %s voltage corners\n",
+			     arg, cnss_get_cx_voltage_corner(vc));
+	} else {
+		cnss_pr_dbg("CX voltage corner control not supported for device: %d\n",
+			    plat_priv->device_id);
+	}
+
+	return 0;
+}
+
+int cnss_set_bidirectional_ack_pdc(struct cnss_plat_data *plat_priv,
+				   enum ack_gen_mode arg)
+{
+	char pdc_mode[CNSS_MBOX_MSG_MAX_LEN] = {0x00};
+	int ret = 0;
+	int enable_ack = 0;
+
+	if (plat_priv->cx_mode != CX_DATA_PIN_PDC) {
+		cnss_pr_err("Bi-directional ACK not supported for mode %d\n",
+			    plat_priv->cx_mode);
+		return -EINVAL;
+	}
+
+	cnss_pr_info("Entering cnss_set_gen_ack_pdc\n");
+
+	/* Determine Bi-directional ACK mode enablement
+	 * based on ack_gen_mode arg input
+	 */
+	switch (arg) {
+	case ACK_GEN_DISABLED:
+		/* Non-ACK Gen Mode - disable ack generation */
+		enable_ack = 0;
+		cnss_pr_info("Non-ACK Gen Mode - disabling ack generation\n");
+		break;
+	case ACK_GEN_ENABLED:
+		/* ACK Gen Mode - enable ack generation */
+		enable_ack = 1;
+		cnss_pr_info("ACK Gen Mode - enabling ack generation\n");
+		break;
+	default:
+		cnss_pr_err("Invalid ACK Gen mode: %d\n", arg);
+		return -EINVAL;
+	}
+
+	if (plat_priv->device_id == FIG_DEVICE_ID) {
+		cnss_pr_info("%s Bi-Directional ACK on device: %d, mode: %d\n",
+			     enable_ack ? "Enabling" : "Disabling",
+			     plat_priv->device_id, arg);
+
+		snprintf(pdc_mode, CNSS_MBOX_MSG_MAX_LEN,
+			 "{class: wlan_pdc, ss: bb, res: gen_ack, enable: %d}",
+			 enable_ack);
+		ret = cnss_aop_send_msg(plat_priv, pdc_mode);
+		if (ret < 0) {
+			cnss_pr_err("Failed to send PDC mode message: %d\n", ret);
+			return ret;
+		}
+
+		cnss_pr_dbg("Bi-Directional ACK %s successfully for mode %d\n",
+			    enable_ack ? "enabled" : "disabled", arg);
+	} else {
+		cnss_pr_dbg("Bi-Directional ACK not supported for device: %d\n",
+			    plat_priv->device_id);
 	}
 
 	return 0;
@@ -2992,9 +3193,6 @@ int cnss_get_cxpc(struct cnss_plat_data *plat_priv)
 int cnss_set_cx_voltage_corner(struct cnss_plat_data *plat_priv,
 			       enum cx_voltage_corners vc, u16 arg)
 {
-	u32 cx_mode_dt;
-	int ret;
-
 	cnss_pr_info("Entering cnss_set_cx_voltage_corner\n");
 
 	if (!plat_priv) {
@@ -3002,18 +3200,10 @@ int cnss_set_cx_voltage_corner(struct cnss_plat_data *plat_priv,
 		return -EINVAL;
 	}
 
-	ret  = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
-				    "cx-mode", &cx_mode_dt);
-	if (ret) {
-		cnss_pr_err("could not find cx mode\n");
-		return -EINVAL;
-	}
-
-	if (cx_mode_dt == CX_DATA_PIN_PMIC)
+	if (plat_priv->cx_mode == CX_DATA_PIN_PMIC)
 		return cnss_set_cx_voltage_corner_sdam(plat_priv, vc, arg);
-	else if (cx_mode_dt == CX_DATA_PIN_PDC) {
-		//TODO: Add Hawi implementation
-		return -EOPNOTSUPP;
+	else if (plat_priv->cx_mode == CX_DATA_PIN_PDC) {
+		return cnss_set_cx_voltage_corner_pdc(plat_priv, vc, arg);
 	}
 
 	return 0;
@@ -3021,9 +3211,6 @@ int cnss_set_cx_voltage_corner(struct cnss_plat_data *plat_priv,
 
 u8 *cnss_debug_direct_cx(struct cnss_plat_data *plat_priv)
 {
-	u32 cx_mode_dt;
-	int ret;
-
 	cnss_pr_info("Entering cnss_debug_direct_cx\n");
 
 	if (!plat_priv) {
@@ -3031,17 +3218,9 @@ u8 *cnss_debug_direct_cx(struct cnss_plat_data *plat_priv)
 		return NULL;
 	}
 
-	ret  = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
-				    "cx-mode", &cx_mode_dt);
-	if (ret) {
-		cnss_pr_err("could not find cx mode\n");
-		return NULL;
-	}
-
-	if (cx_mode_dt == CX_DATA_PIN_PMIC)
+	if (plat_priv->cx_mode == CX_DATA_PIN_PMIC)
 		return cnss_read_debug_register(plat_priv);
-	else if (cx_mode_dt == CX_DATA_PIN_PDC) {
-		//TODO: Add Hawi implementation
+	else if (plat_priv->cx_mode == CX_DATA_PIN_PDC) {
 		return NULL;
 	}
 
@@ -3405,6 +3584,9 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 			cnss_pr_dbg("Skip link down recovery as link is already up\n");
 			return 0;
 		}
+
+		cnss_bus_notify_mhi_error(plat_priv);
+
 		if (test_bit(LINK_DOWN_SELF_RECOVERY,
 			     &plat_priv->ctrl_params.quirks))
 			goto self_recovery;
@@ -6080,7 +6262,7 @@ static ssize_t tme_opt_file_download_store(struct device *dev,
 					const char *buf, size_t count)
 {
 	struct cnss_plat_data *plat_priv = dev_get_drvdata(dev);
-	char cmd[MAX_SYSFS_USER_COMMAND_SIZE_LENGTH];
+	char cmd[MAX_SYSFS_USER_COMMAND_SIZE_LENGTH + 1];
 
 	if (count > MAX_SYSFS_USER_COMMAND_SIZE_LENGTH) {
 		cnss_pr_err("Cmd length is larger than %zu bytes, count: %zu ",
@@ -6088,7 +6270,7 @@ static ssize_t tme_opt_file_download_store(struct device *dev,
 
 		return -EINVAL;
 	}
-	if (sscanf(buf, "%s", cmd) != 1)
+	if (sscanf(buf, "%" __stringify(MAX_SYSFS_USER_COMMAND_SIZE_LENGTH) "s", cmd) != 1)
 		return -EINVAL;
 
 	if (!test_bit(CNSS_FW_READY, &plat_priv->driver_state)) {
@@ -6539,10 +6721,217 @@ static void cnss_fmd_status_update_cb(void *cb_ctx, bool status)
 	cnss_pr_dbg("FMD status update: %d\n", status);
 	if (status) {
 		set_bit(CNSS_IN_REBOOT, &plat_priv->driver_state);
-		cnss_bus_update_status(plat_priv, CNSS_SYS_REBOOT);
+		cnss_bus_update_status(plat_priv, CNSS_BUS_EVENT);
 		cnss_bus_fmd_status(plat_priv, status);
 	}
 }
+
+static int cnss_get_wlan_tsf_gpio_info(struct cnss_plat_data *plat_priv)
+{
+	struct device *dev = &plat_priv->plat_dev->dev;
+	struct cnss_wlan_tsf_info *tsf_info = &plat_priv->tsf_info;
+
+	tsf_info->wlan_tsf_gpio = -EINVAL;
+	tsf_info->irq_num = -EINVAL;
+
+	if (!of_find_property(dev->of_node, TSF_SYNC_GPIO, NULL))
+		return -EINVAL;
+
+	tsf_info->wlan_tsf_gpio = of_get_named_gpio(dev->of_node,
+						    TSF_SYNC_GPIO, 0);
+	cnss_pr_dbg("WLAN TSF GPIO: %d\n", tsf_info->wlan_tsf_gpio);
+	if (tsf_info->wlan_tsf_gpio < 0)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int cnss_get_tsf_ts_info(struct cnss_plat_data *plat_priv)
+{
+	struct platform_device *plat_dev = plat_priv->plat_dev;
+	struct device *dev = &plat_dev->dev;
+	struct resource *res;
+	resource_size_t addr_len;
+	void __iomem *base_addr;
+
+	res = platform_get_resource_byname(plat_dev, IORESOURCE_MEM,
+					   TSF_IRQ_TS);
+	if (!res) {
+		cnss_pr_dbg("TSF_IRQ_TS address is not present\n");
+		return -ENOMEM;
+	}
+
+	addr_len = resource_size(res);
+	base_addr = devm_ioremap(dev, res->start, addr_len);
+	if (!base_addr) {
+		cnss_pr_dbg("Failed to get ts base address\n");
+		return -ENOMEM;
+	}
+	plat_priv->tsf_info.irq_ts_info.cmd_ts_addr = res->start;
+	plat_priv->tsf_info.irq_ts_info.cmd_ts_addr_io = base_addr;
+	plat_priv->tsf_info.irq_ts_info.is_valid_addr = true;
+
+	cnss_pr_dbg("TSF_IRQ_TS base address is %pa with length %pa base_addr %pa\n",
+		    &plat_priv->tsf_info.irq_ts_info.cmd_ts_addr, &addr_len,
+		    &plat_priv->tsf_info.irq_ts_info.cmd_ts_addr_io);
+
+	return 0;
+}
+
+static void cnss_read_tsf_irq_ts(struct cnss_wlan_tsf_info *tsf_info)
+{
+	uint64_t data_val;
+	void __iomem *tsf_cmd;
+
+	if (!tsf_info->irq_ts_info.is_valid_addr)
+		return;
+
+	tsf_cmd = tsf_info->irq_ts_info.cmd_ts_addr_io;
+	data_val = readl_relaxed(tsf_cmd + TSF_IRQ_TS_OP_OFFSET);
+	if (!(data_val & TSF_IRQ_TS_OP_VALID))
+		return;
+
+	if (data_val & TSF_IRQ_TS_OP_OVERFLOW)
+		cnss_pr_dbg("tsf irq timestamp overflow detected\n");
+	data_val = readl_relaxed(tsf_cmd + TSF_IRQ_TS_LO_OFFSET);
+	data_val |= ((uint64_t)readl_relaxed(tsf_cmd + TSF_IRQ_TS_HI_OFFSET)) << 32;
+	if (!data_val)
+		return;
+
+	if (data_val * 10 < data_val) {
+		do_div(data_val, TIME_CLOCK_FREQ_HZ / 100000);
+		tsf_info->host_time_us = data_val * 10;
+		return;
+	}
+
+	data_val = data_val * 10;
+	do_div(data_val, TIME_CLOCK_FREQ_HZ / 100000);
+	tsf_info->host_time_us = data_val;
+}
+
+static irqreturn_t cnss_wlan_tsf_capture_threaded_handler(int irq, void *ctx)
+{
+	struct cnss_wlan_tsf_info *tsf_info = ctx;
+
+	if (!tsf_info)
+		return IRQ_HANDLED;
+
+	if (tsf_info->irq_num < 0 || tsf_info->irq_num != irq ||
+	    !tsf_info->wlan_tsf_handler || !tsf_info->context)
+		return IRQ_HANDLED;
+
+	cnss_read_tsf_irq_ts(tsf_info);
+	tsf_info->wlan_tsf_handler(tsf_info->context, tsf_info->host_time_us);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t cnss_wlan_tsf_capture_irq_handler(int irq, void *ctx)
+{
+	struct cnss_wlan_tsf_info *tsf_info = ctx;
+	struct cnss_plat_data *plat_priv;
+
+	if (!tsf_info)
+		return IRQ_HANDLED;
+
+	plat_priv = container_of(tsf_info, struct cnss_plat_data, tsf_info);
+	tsf_info->host_time_us = cnss_get_host_timestamp(plat_priv);
+
+	return IRQ_WAKE_THREAD;
+}
+
+static int cnss_wlan_tsf_init(struct cnss_wlan_tsf_info *tsf_info)
+{
+	int ret;
+
+	if (tsf_info->wlan_tsf_gpio < 0)
+		return -EINVAL;
+
+	ret = gpio_request(tsf_info->wlan_tsf_gpio, "wlan_tsf_gpio");
+	if (ret) {
+		cnss_pr_err("Failed to request TSF GPIO %d, err = %d\n",
+				tsf_info->wlan_tsf_gpio, ret);
+		return ret;
+	}
+
+	gpio_direction_input(tsf_info->wlan_tsf_gpio);
+	tsf_info->irq_num = gpio_to_irq(tsf_info->wlan_tsf_gpio);
+	cnss_pr_dbg("WLAN TSF IRQ: %d\n", tsf_info->irq_num);
+	if (tsf_info->irq_num < 0) {
+		gpio_free(tsf_info->wlan_tsf_gpio);
+		return -EINVAL;
+	}
+
+	ret = request_threaded_irq(tsf_info->irq_num,
+				   cnss_wlan_tsf_capture_irq_handler,
+				   cnss_wlan_tsf_capture_threaded_handler,
+				   IRQF_SHARED | IRQF_TRIGGER_RISING,
+				   "wlan_tsf", (void *)tsf_info);
+	if (ret) {
+		gpio_free(tsf_info->wlan_tsf_gpio);
+		cnss_pr_err("Failed to request TSF IRQ, err = %d\n", ret);
+	}
+
+	cnss_pr_dbg("request irq[%d], result: %d\n", tsf_info->irq_num, ret);
+	return ret;
+}
+
+static void cnss_wlan_tsf_deinit(struct cnss_wlan_tsf_info *tsf_info)
+{
+	if (tsf_info->irq_num >= 0)
+		free_irq(tsf_info->irq_num, (void *)tsf_info);
+
+	if (tsf_info->wlan_tsf_gpio >= 0)
+		gpio_free(tsf_info->wlan_tsf_gpio);
+
+	tsf_info->irq_num = -EINVAL;
+	tsf_info->wlan_tsf_handler = NULL;
+	tsf_info->context = NULL;
+}
+
+int cnss_register_tsf_captured_handler(struct device *dev,
+				       wlan_tsf_handler_t handler,
+				       void *ctx)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	struct cnss_wlan_tsf_info *tsf_info;
+	int ret;
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL!\n");
+		return -EINVAL;
+	}
+
+	tsf_info = &plat_priv->tsf_info;
+	ret = cnss_wlan_tsf_init(tsf_info);
+	if (ret) {
+		cnss_pr_err("wlan tsf irq is not initialized\n");
+		return -EINVAL;
+	}
+
+	tsf_info->wlan_tsf_handler = handler;
+	tsf_info->context = ctx;
+	return 0;
+}
+EXPORT_SYMBOL(cnss_register_tsf_captured_handler);
+
+int cnss_unregister_tsf_captured_handler(struct device *dev, void *ctx)
+{
+	struct cnss_plat_data *plat_priv = cnss_bus_dev_to_plat_priv(dev);
+	struct cnss_wlan_tsf_info *tsf_info;
+
+	if (!plat_priv) {
+		cnss_pr_err("plat_priv is NULL!\n");
+		return -EINVAL;
+	}
+
+	tsf_info = &plat_priv->tsf_info;
+	cnss_wlan_tsf_deinit(tsf_info);
+	tsf_info->wlan_tsf_handler = NULL;
+	tsf_info->context = NULL;
+	return 0;
+}
+EXPORT_SYMBOL(cnss_unregister_tsf_captured_handler);
 
 static int cnss_misc_init(struct cnss_plat_data *plat_priv)
 {
@@ -6755,6 +7144,14 @@ cnss_use_nv_mac(struct cnss_plat_data *plat_priv)
 {
 	return of_property_read_bool(plat_priv->plat_dev->dev.of_node,
 				     "use-nv-mac");
+}
+
+static void cnss_get_rc_pm_control_info(struct cnss_plat_data *plat_priv)
+{
+	plat_priv->rc_pm_control =
+		of_property_read_bool(plat_priv->plat_dev->dev.of_node,
+				      "wlan-rc-pm-control");
+	cnss_pr_dbg("rc_pm_control: %d\n", plat_priv->rc_pm_control);
 }
 
 static int cnss_get_dev_cfg_node(struct cnss_plat_data *plat_priv)
@@ -7183,6 +7580,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 	const struct of_device_id *of_id;
 	const struct platform_device_id *device_id;
 	static bool prealloc_initialized;
+	u32 cx_mode_dt;
 
 	of_id = of_match_device(cnss_of_match_table, &plat_dev->dev);
 	if (!of_id || !of_id->data) {
@@ -7222,6 +7620,28 @@ static int cnss_probe(struct platform_device *plat_dev)
 	cnss_pr_dbg("Probing platform driver from dt type: %d\n",
 		    plat_priv->dt_type);
 
+	ret  = of_property_read_u32(plat_priv->plat_dev->dev.of_node,
+				    "cx-mode", &cx_mode_dt);
+	if (ret) {
+		cnss_pr_err("could not find cx mode\n");
+		plat_priv->cx_mode = CX_LEGACY; /* Set to invalid/default value */
+	} else {
+		/* Validate the cx_mode_dt value and set plat_priv->cx_mode */
+		switch (cx_mode_dt) {
+		case CX_LEGACY:
+		case CX_DATA_PIN:
+		case CX_DATA_PIN_PDC:
+		case CX_DATA_PIN_PMIC:
+			plat_priv->cx_mode = (enum cx_modes)cx_mode_dt;
+			cnss_pr_dbg("CX mode set to %d\n", plat_priv->cx_mode);
+			break;
+		default:
+			cnss_pr_err("Invalid cx-mode value %d, setting to CX_LEGACY\n", cx_mode_dt);
+			plat_priv->cx_mode = CX_LEGACY;
+			break;
+		}
+	}
+
 	cnss_xdump_init(plat_priv);
 	plat_priv->use_fw_path_with_prefix =
 		cnss_use_fw_path_with_prefix(plat_priv);
@@ -7253,6 +7673,7 @@ static int cnss_probe(struct platform_device *plat_dev)
 
 	plat_priv->bus_type = cnss_get_bus_type(plat_priv);
 	plat_priv->use_nv_mac = cnss_use_nv_mac(plat_priv);
+	cnss_get_rc_pm_control_info(plat_priv);
 	cnss_set_plat_priv(plat_dev, plat_priv);
 	cnss_set_device_name(plat_priv);
 	platform_set_drvdata(plat_dev, plat_priv);
@@ -7266,7 +7687,11 @@ static int cnss_probe(struct platform_device *plat_dev)
 	cnss_power_misc_params_init(plat_priv);
 	cnss_get_tcs_info(plat_priv);
 	cnss_get_cpr_info(plat_priv);
-	cnss_get_wlan_tsf_gpio_info(plat_priv);
+
+	ret = cnss_get_wlan_tsf_gpio_info(plat_priv);
+	if (!ret)
+		cnss_get_tsf_ts_info(plat_priv);
+
 	cnss_aop_interface_init(plat_priv);
 	cnss_init_control_params(plat_priv);
 	cnss_get_cpumask_for_wlan_txrx_intr(plat_priv);

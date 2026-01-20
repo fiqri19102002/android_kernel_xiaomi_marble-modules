@@ -53,6 +53,9 @@
 #include <linux/soc/qcom/slate_events_bridge_intf.h>
 #include <uapi/linux/slatecom_interface.h>
 #endif
+#include <linux/regulator/consumer.h>
+#include <linux/nvmem-consumer.h>
+
 #include <linux/qcom-iommu-util.h>
 #include <soc/qcom/of_common.h>
 #include "main.h"
@@ -282,6 +285,8 @@ char *icnss_driver_event_to_str(enum icnss_driver_event_type type)
 		return "QDSS_TRACE_REQ_DATA";
 	case ICNSS_DRIVER_EVENT_SUBSYS_RESTART_LEVEL:
 		return "SUBSYS_RESTART_LEVEL";
+	case ICNSS_DRIVER_EVENT_XO_TRIM_IND:
+		return "XO_TRIM_IND";
 	case ICNSS_DRIVER_EVENT_MAX:
 		return "EVENT_MAX";
 	}
@@ -1258,6 +1263,7 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 	set_bit(ICNSS_WLFW_EXISTS, &priv->state);
 	clear_bit(ICNSS_FW_DOWN, &priv->state);
 	clear_bit(ICNSS_FW_READY, &priv->state);
+	priv->soc_wake_req_fail = 0;
 
 	if (priv->is_slate_rfa) {
 		ret = icnss_wait_for_slate_complete(priv);
@@ -2737,6 +2743,127 @@ static void icnss_wpss_self_recovery(struct work_struct *wpss_load_work)
 	}
 }
 
+/**
+ * icnss_xo_trim_init - Initialize configurations for XO trim
+ * @priv: Pointer to icnss platform data
+ *
+ * This function attempts to retrieve the register for inputting XO calibration
+ * data and the regulator to trigger the PBS from DTS.
+ *
+ * Return: None
+ */
+static void icnss_xo_trim_init(struct icnss_priv *priv)
+{
+	struct device *dev;
+	struct icnss_xo_trim_config *xo_trim_conf;
+
+	dev = &priv->pdev->dev;
+	xo_trim_conf = &priv->xo_trim_conf;
+
+	xo_trim_conf->xo_calib_reg = devm_nvmem_cell_get(dev, "xo_calib_reg");
+	if (IS_ERR(xo_trim_conf->xo_calib_reg)) {
+		icnss_pr_dbg("Invalid xo_calib_reg: %ld\n",
+			     PTR_ERR(xo_trim_conf->xo_calib_reg));
+		return;
+	}
+
+	xo_trim_conf->wcal_pbs = devm_regulator_get_optional(dev, "wcal-pbs");
+	if (IS_ERR(xo_trim_conf->wcal_pbs)) {
+		icnss_pr_dbg("Invalid wcal_pbs: %ld\n",
+			     PTR_ERR(xo_trim_conf->wcal_pbs));
+		return;
+	}
+
+	icnss_pr_dbg("XO trim initialized\n");
+}
+
+/**
+ * icnss_xo_trim_deinit - Deinitialize configurations for XO trim
+ * @priv: Pointer to icnss platform data
+ *
+ * Return: None
+ */
+void icnss_xo_trim_deinit(struct icnss_priv *priv)
+{
+	/* The resources allocated by devm_* functions will be automatically
+	 * freed by the resource manager when the device is released.
+	 */
+	icnss_pr_dbg("XO trim de-initialized\n");
+}
+
+/**
+ * icnss_xo_trim_perform - Perform the XO trim
+ * @xo_trim_conf: pointer to config for XO trim
+ *
+ * This function writes the new XO trim value to the NVMEM location exposed by
+ * PMIC. It then triggers PBS sequence using the WLAN_CAL regulator resource by
+ * calling regulator_enable(), followed by regulator_disable().
+ * This sequence causes PMIC PBS to apply the new trim value to PMIC XO trim
+ * settings, leading to an adjustment in the crystal oscillator frequency.
+ *
+ * Return: 0 on success, errno otherwise
+ */
+static int icnss_xo_trim_perform(struct icnss_xo_trim_config *xo_trim_conf)
+{
+	int ret;
+
+	if (IS_ERR_OR_NULL(xo_trim_conf->xo_calib_reg) ||
+	    IS_ERR_OR_NULL(xo_trim_conf->wcal_pbs)) {
+		icnss_pr_err("Invalid xo trim config\n");
+		return -EINVAL;
+	}
+
+	ret = nvmem_cell_write(xo_trim_conf->xo_calib_reg,
+			       &xo_trim_conf->trim_val,
+			       sizeof(xo_trim_conf->trim_val));
+	if (ret < 0) {
+		icnss_pr_err("Fail to write xo_calib_reg, ret = %d\n", ret);
+		return ret;
+	}
+
+	/* Enable/disable regulator to trigger PBS sequence */
+	ret = regulator_enable(xo_trim_conf->wcal_pbs);
+	if (ret) {
+		icnss_pr_err("Fail to enable wcal_pbs: %d\n", ret);
+		return ret;
+	}
+
+	ret = regulator_disable(xo_trim_conf->wcal_pbs);
+	if (ret) {
+		icnss_pr_err("Fail to disable wcal_pbs: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+/**
+ * icnss_set_xo_trim - API for XO trim operation.
+ * @priv: Pointer to platform driver context.
+ * @data: Pointer to event data that holds the trim value.
+ *
+ * This function performs XO trim and notifies target of the result.
+ *
+ * Return: 0 on success, errno othrewise
+ */
+static int icnss_set_xo_trim(struct icnss_priv *priv, void *data)
+{
+	int ret = -EINVAL;
+
+	if (!data)
+		goto out;
+
+	priv->xo_trim_conf.trim_val = *((u8 *)data);
+	kfree(data);
+
+	ret = icnss_xo_trim_perform(&priv->xo_trim_conf);
+	icnss_pr_dbg("XO trim result with value(%u): %d\n",
+		     priv->xo_trim_conf.trim_val, ret);
+
+out:
+	return icnss_wlfw_xo_trim_result_send_sync(priv, ret);
+}
+
 static void icnss_driver_event_work(struct work_struct *work)
 {
 	struct icnss_priv *priv =
@@ -2828,6 +2955,9 @@ static void icnss_driver_event_work(struct work_struct *work)
 			ret = icnss_process_twt_cfg_ind_event(priv,
 							     event->data);
 			break;
+		case ICNSS_DRIVER_EVENT_XO_TRIM_IND:
+			ret = icnss_set_xo_trim(priv, event->data);
+			break;
 		default:
 			icnss_pr_err("Invalid Event type: %d", event->type);
 			kfree(event);
@@ -2885,6 +3015,10 @@ static void icnss_soc_wake_msg_work(struct work_struct *work)
 		case ICNSS_SOC_WAKE_REQUEST_EVENT:
 			ret = icnss_event_soc_wake_request(priv,
 							   event->data);
+			if (ret == -ETIMEDOUT)
+				priv->soc_wake_req_fail++;
+			else
+				priv->soc_wake_req_fail = 0;
 			break;
 		case ICNSS_SOC_WAKE_RELEASE_EVENT:
 			ret = icnss_event_soc_wake_release(priv,
@@ -2898,10 +3032,10 @@ static void icnss_soc_wake_msg_work(struct work_struct *work)
 
 		priv->stats.soc_wake_events[event->type].processed++;
 
-		icnss_pr_soc_wake("Event Processed: %s%s(%d), ret: %d, state: 0x%lx\n",
+		icnss_pr_soc_wake("Event Processed: %s%s(%d), ret: %d, state: 0x%lx soc_wake_fail_count:%u\n",
 				  icnss_soc_wake_event_to_str(event->type),
 				  event->sync ? "-sync" : "", event->type, ret,
-				  priv->state);
+				  priv->state, priv->soc_wake_req_fail);
 
 		spin_lock_irqsave(&priv->soc_wake_msg_lock, flags);
 		if (event->sync) {
@@ -2918,6 +3052,22 @@ static void icnss_soc_wake_msg_work(struct work_struct *work)
 	spin_unlock_irqrestore(&priv->soc_wake_msg_lock, flags);
 
 	icnss_pm_relax(priv);
+
+	/*Check if recovery is required based on fail count*/
+	if (priv->soc_wake_req_fail >= ICNSS_SOC_WAKE_RECOVERY_COUNT &&
+	    !test_bit(ICNSS_FW_DOWN, &priv->state)) {
+		priv->stats.soc_wake_events[ICNSS_SOC_WAKE_REQUEST_EVENT].recovery_count++;
+		icnss_pr_info("Triggering recovery due to soc wake fail count: %u\n",
+		priv->stats.soc_wake_events[ICNSS_SOC_WAKE_REQUEST_EVENT].recovery_count);
+
+		priv->soc_wake_req_fail = 0;
+		ret = icnss_trigger_recovery(&priv->pdev->dev);
+		if (ret < 0) {
+			icnss_fatal_err("Soc wake recovery fail: ret: %d, state: 0x%lx\n",
+					ret, priv->state);
+			ICNSS_ASSERT_ALWAYS(0);
+		}
+	}
 }
 
 static int icnss_msa0_ramdump(struct icnss_priv *priv)
@@ -3665,7 +3815,7 @@ static void *icnss_create_ramdump_device(struct icnss_priv *priv, const char *de
 
 	snprintf(ramdump_info->name, ARRAY_SIZE(ramdump_info->name), "icnss_%s", dev_name);
 
-	ramdump_info->minor = ida_simple_get(&rd_minor_id, 0, RAMDUMP_NUM_DEVICES, GFP_KERNEL);
+	ramdump_info->minor = ida_alloc_max(&rd_minor_id, RAMDUMP_NUM_DEVICES - 1, GFP_KERNEL);
 	if (ramdump_info->minor < 0) {
 		icnss_pr_err("%s: No more minor numbers left! rc:%d\n", __func__,
 			     ramdump_info->minor);
@@ -3686,7 +3836,7 @@ static void *icnss_create_ramdump_device(struct icnss_priv *priv, const char *de
 	return (void *)ramdump_info;
 
 fail_device_create:
-	ida_simple_remove(&rd_minor_id, ramdump_info->minor);
+	ida_free(&rd_minor_id, ramdump_info->minor);
 fail_out_of_minors:
 	kfree(ramdump_info);
 	return ERR_PTR(ret);
@@ -5503,6 +5653,42 @@ static void icnss_sysfs_destroy(struct icnss_priv *priv)
 	icnss_devm_device_remove_group(priv);
 }
 
+static int icnss_get_wcn_ktb_info(struct icnss_priv *priv)
+{
+	int ret = 0;
+	struct platform_device *pdev = priv->pdev;
+	struct device *dev = &pdev->dev;
+	u8 *buf;
+	size_t len = 0;
+
+	priv->wcn_ktb_info_reg = devm_nvmem_cell_get(dev, "wcn_info_reg");
+	if (IS_ERR(priv->wcn_ktb_info_reg)) {
+		ret = PTR_ERR(priv->wcn_ktb_info_reg);
+		icnss_pr_dbg(" WCN_KTB_rail not supported \n");
+		priv->wcn_ktb_info_reg = NULL;
+		priv->wcn_ktb_info_buf = NULL;
+	} else {
+		buf = nvmem_cell_read(priv->wcn_ktb_info_reg, &len);
+		if (IS_ERR(buf)) {
+			ret = PTR_ERR(buf);
+			icnss_pr_err("Failed to read wcn_ktb_info cell, ret=%d\n", ret);
+			priv->wcn_ktb_info_reg = NULL;
+			priv->wcn_ktb_info_buf = NULL;
+			return ret;
+		}
+		if (len < 1) {
+			icnss_pr_err("Invalid wcn_ktb_info length: %zu\n", len);
+			kfree(buf);
+			priv->wcn_ktb_info_reg = NULL;
+			priv->wcn_ktb_info_buf = NULL;
+			return -EINVAL;
+		}
+		priv->wcn_ktb_info_buf = buf;
+	}
+
+	return 0;
+}
+
 static int icnss_resource_parse(struct icnss_priv *priv)
 {
 	int ret = 0, i = 0, irq = 0;
@@ -5511,10 +5697,16 @@ static int icnss_resource_parse(struct icnss_priv *priv)
 	struct resource *res;
 	u32 int_prop;
 
+	if (priv->device_id == WCN7750_DEVICE_ID) {
+		ret = icnss_get_wcn_ktb_info(priv);
+		if (ret)
+			goto out;
+	}
+
 	ret = icnss_get_vreg(priv);
 	if (ret) {
 		icnss_pr_err("Failed to get vreg, err = %d\n", ret);
-		goto out;
+		goto cleanup_ktb_info;
 	}
 
 	ret = icnss_get_clk(priv);
@@ -5641,12 +5833,19 @@ static int icnss_resource_parse(struct icnss_priv *priv)
 		}
 	}
 
+	/* Non-fatal and continue if configuration is unavailable */
+	icnss_xo_trim_init(priv);
 	return 0;
 
 put_clk:
 	icnss_put_clk(priv);
 put_vreg:
 	icnss_put_vreg(priv);
+cleanup_ktb_info:
+	if (priv->wcn_ktb_info_buf) {
+		kfree(priv->wcn_ktb_info_buf);
+		priv->wcn_ktb_info_buf = NULL;
+	}
 out:
 	return ret;
 }
@@ -6465,7 +6664,7 @@ static void icnss_destroy_ramdump_device(struct icnss_ramdump_info *ramdump_info
 
 	device_unregister(ramdump_info->dev);
 
-	ida_simple_remove(&rd_minor_id, ramdump_info->minor);
+	ida_free(&rd_minor_id, ramdump_info->minor);
 
 	kfree(ramdump_info);
 }
@@ -6557,6 +6756,9 @@ static void icnss_remove(struct platform_device *pdev)
 	priv->iommu_domain = NULL;
 
 	icnss_hw_power_off(priv);
+
+	if (priv->wcn_ktb_info_buf)
+		kfree(priv->wcn_ktb_info_buf);
 
 	icnss_put_resources(priv);
 

@@ -986,8 +986,10 @@ struct wlfw_bdf_download_resp_msg_v01 {
 	struct qmi_response_type_v01 resp;
 	u8 host_bdf_data_valid;
 	u64 host_bdf_data;
+	u8 xo_trim_val_valid;
+	u8 xo_trim_val;
 };
-#define WLFW_BDF_DOWNLOAD_RESP_MSG_V01_MAX_MSG_LEN 18
+#define WLFW_BDF_DOWNLOAD_RESP_MSG_V01_MAX_MSG_LEN 22
 extern struct qmi_elem_info wlfw_bdf_download_resp_msg_v01_ei[];
 
 struct wlfw_cal_report_req_msg_v01 {

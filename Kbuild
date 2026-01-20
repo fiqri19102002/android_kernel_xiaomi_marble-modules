@@ -31,6 +31,11 @@ ifeq ($(CONFIG_ARCH_PINEAPPLE), y)
 	LINUX_INC += -include $(TOUCH_ROOT)/config/gki_pineappletouchconf.h
 endif
 
+ifeq ($(CONFIG_ARCH_MALABAR), y)
+	include $(TOUCH_ROOT)/config/gki_malabartouch.conf
+	LINUX_INC += -include $(TOUCH_ROOT)/config/gki_malabartouchconf.h
+endif
+
 ifeq ($(CONFIG_ARCH_MONACO), y)
 	include $(TOUCH_ROOT)/config/gki_monacotouch.conf
 	LINUX_INC += -include $(TOUCH_ROOT)/config/gki_monacotouchconf.h
@@ -56,7 +61,7 @@ ifeq ($(CONFIG_ARCH_TRINKET), y)
         LINUX_INC += -include $(TOUCH_ROOT)/config/gki_trinkettouchconf.h
 endif
 
-ifeq ($(CONFIG_ARCH_SUN), y)
+ifeq ($(or $(CONFIG_ARCH_SUN), $(CONFIG_ARCH_KERA)), y)
 	include $(TOUCH_ROOT)/config/gki_suntouch.conf
 	LINUX_INC += -include $(TOUCH_ROOT)/config/gki_suntouchconf.h
 endif
@@ -64,6 +69,11 @@ endif
 ifeq ($(CONFIG_ARCH_CANOE), y)
 	include $(TOUCH_ROOT)/config/gki_canoetouch.conf
 	LINUX_INC += -include $(TOUCH_ROOT)/config/gki_canoetouchconf.h
+endif
+
+ifeq ($(CONFIG_ARCH_ART), y)
+	include $(TOUCH_ROOT)/config/gki_arttouch.conf
+	LINUX_INC += -include $(TOUCH_ROOT)/config/gki_arttouchconf.h
 endif
 
 ifeq ($(CONFIG_ARCH_CHORA), y)
@@ -260,6 +270,33 @@ ifeq ($(CONFIG_TOUCHSCREEN_SYNAPTICS_TCM), y)
 		 ./synaptics_tcm/synaptics_tcm_touch.o
 
 	obj-$(CONFIG_MSM_TOUCH) += synaptics_tcm_ts.o
+
+endif
+
+ifeq ($(CONFIG_TOUCHSCREEN_SYNAPTICS_TCM2), y)
+	LINUX_INC += -include $(TOUCH_ROOT)/synaptics_tcm2/syna_tcm2_cdev.h
+	LINUX_INC += -include $(TOUCH_ROOT)/synaptics_tcm2/syna_tcm2.h
+	LINUX_INC += -include $(TOUCH_ROOT)/synaptics_tcm2/syna_tcm2_platform.h
+	LINUX_INC += -include $(TOUCH_ROOT)/synaptics_tcm2/syna_tcm2_runtime.h
+	LINUX_INC += -include $(TOUCH_ROOT)/synaptics_tcm2/tcm/synaptics_touchcom_core_dev.h
+	LINUX_INC += -include $(TOUCH_ROOT)/synaptics_tcm2/tcm/synaptics_touchcom_func_base.h
+	LINUX_INC += -include $(TOUCH_ROOT)/synaptics_tcm2/tcm/synaptics_touchcom_func_reflash.h
+	LINUX_INC += -include $(TOUCH_ROOT)/synaptics_tcm2/tcm/synaptics_touchcom_func_touch.h
+	LINUX_INC += -include $(TOUCH_ROOT)/synaptics_tcm2/tcm/synaptics_touchcom_image_parsing.h
+	LINUX_INC += -include $(TOUCH_ROOT)/synaptics_tcm2/tcm/synaptics_touchcom_platform.h
+
+	synaptics_tcm_ts-y := \
+		 ./synaptics_tcm2/syna_tcm2.o \
+		 ./synaptics_tcm2/syna_tcm2_platform_spi.o \
+		 ./synaptics_tcm2/syna_tcm2_sysfs.o \
+		 ./synaptics_tcm2/syna_tcm2_cdev.o \
+		 ./synaptics_tcm2/tcm/synaptics_touchcom_func_base.o \
+		 ./synaptics_tcm2/tcm/synaptics_touchcom_func_touch.o\
+		 ./synaptics_tcm2/tcm/synaptics_touchcom_core_v1.o \
+		 ./synaptics_tcm2/tcm/synaptics_touchcom_image_parsing.o \
+		 ./synaptics_tcm2/tcm/synaptics_touchcom_func_reflash.o \
+
+	obj-$(CONFIG_MSM_TOUCH) += synaptics_tcm2_ts.o
 
 endif
 

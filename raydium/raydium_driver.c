@@ -1379,8 +1379,9 @@ static void raydium_work_handler(struct work_struct *work)
 #endif
 		LOGD(LOG_DEBUG, "[touch] elseif u8_tp_status:%x\n", u8_tp_status[POS_GES_STATUS]);
 		/*need check small area*/
-		if ((u8_tp_status[POS_GES_STATUS] == RAD_WAKE_UP
-		 && g_u8_wakeup_flag == false) || (u8_tp_status[POS_GES_STATUS] == 0)) {
+		if (((u8_tp_status[POS_GES_STATUS] == RAD_WAKE_UP
+		 && g_u8_wakeup_flag == false) || (u8_tp_status[POS_GES_STATUS] == 0))
+		 && (g_raydium_ts->touch_offload != 2)) {
 		/*if (u8_tp_status[POS_GES_STATUS] == 0)	{*/
 #ifdef CONFIG_ARCH_VIENNA
 			input_report_key(g_raydium_ts->input_dev, BTN_TOUCH, false);
@@ -1569,15 +1570,17 @@ static void raydium_ts_do_suspend(void)
 	input_sync(g_raydium_ts->input_dev);
 
 #ifdef GESTURE_EN
-	if (device_may_wakeup(&g_raydium_ts->client->dev)) {
-		LOGD(LOG_INFO, "[touch]Device may wakeup\n");
-		if (!enable_irq_wake(g_raydium_ts->irq))
-			g_raydium_ts->irq_wake = true;
+	if (g_raydium_ts->is_sleep != 1) {
+		if (device_may_wakeup(&g_raydium_ts->client->dev)) {
+			LOGD(LOG_INFO, "[touch]Device may wakeup\n");
+			if (!enable_irq_wake(g_raydium_ts->irq))
+				g_raydium_ts->irq_wake = true;
 
-	} else {
-		LOGD(LOG_INFO, "[touch]Device not wakeup\n");
+		} else {
+			LOGD(LOG_INFO, "[touch]Device not wakeup\n");
+		}
+		raydium_irq_control(ENABLE);
 	}
-	raydium_irq_control(ENABLE);
 #endif
 
 	g_raydium_ts->is_suspend = 1;

@@ -311,6 +311,18 @@ static int raydium_ts_touch_entry(void)
 
 	LOGD(LOG_INFO, "%s[touch] Start\n", __func__);
 
+#ifdef GESTURE_EN
+	if (device_may_wakeup(&g_raydium_ts->client->dev)) {
+		LOGD(LOG_INFO, "[touch]%s Device may wakeup\n", __func__);
+		if (g_raydium_ts->irq_wake) {
+			disable_irq_wake(g_raydium_ts->irq);
+			g_raydium_ts->irq_wake = false;
+		}
+	} else
+		LOGD(LOG_INFO, "[touch]%s Device not wakeup\n", __func__);
+#endif
+	raydium_irq_control(DISABLE);
+
 	/*glink touch enter prepare cmd */
 	glink_send_msg = &glink_touch_enter_prep;
 	LOGD(LOG_INFO, "[touch] glink_send_msg = %0x\n", *(int *)glink_send_msg);
@@ -335,7 +347,7 @@ static int raydium_ts_touch_entry(void)
 			if (rc < 0)
 				pr_err("Could not set pins to suspend\n");
 		}
-#elif
+#else
 		//Release the gpio's
 		if (gpio_is_valid(g_raydium_ts->rst_gpio))
 			gpio_free(g_raydium_ts->rst_gpio);
@@ -343,22 +355,23 @@ static int raydium_ts_touch_entry(void)
 		if (gpio_is_valid(g_raydium_ts->irq_gpio))
 			gpio_free(g_raydium_ts->irq_gpio);
 #endif
-		raydium_irq_control(DISABLE);
 
 		if (!cancel_work_sync(&g_raydium_ts->work))
 			LOGD(LOG_DEBUG, "[touch]workqueue is empty!\n");
 
-		/* release all touches */
-		for (u8_i = 0; u8_i < g_raydium_ts->u8_max_touchs; u8_i++) {
-			pr_err("[touch]%s 1111\n", __func__);
-			input_mt_slot(g_raydium_ts->input_dev, u8_i);
-			input_mt_report_slot_state(g_raydium_ts->input_dev,
-					MT_TOOL_FINGER,
-					false);
-		}
+		if (g_raydium_ts->input_dev) {
+			/* release all touches */
+			for (u8_i = 0; u8_i < g_raydium_ts->u8_max_touchs; u8_i++) {
+				pr_err("[touch]%s 1111\n", __func__);
+				input_mt_slot(g_raydium_ts->input_dev, u8_i);
+				input_mt_report_slot_state(g_raydium_ts->input_dev,
+						MT_TOOL_FINGER,
+						false);
+			}
 
-		input_mt_report_pointer_emulation(g_raydium_ts->input_dev, false);
-		input_sync(g_raydium_ts->input_dev);
+			input_mt_report_pointer_emulation(g_raydium_ts->input_dev, false);
+			input_sync(g_raydium_ts->input_dev);
+		}
 	}
 
 	LOGD(LOG_INFO, "%s[touch] Start End\n", __func__);
@@ -401,7 +414,7 @@ static int raydium_ts_touch_exit(void)
 		}
 		pr_err("%d: pinctrl_select_state success for INT and RESET_N : %s\n",
 			 __LINE__, __func__);
-#elif
+#else
 		//Configure the gpio's
 		ret = raydium_ts_gpio_config(true);
 		if (ret < 0) {
@@ -550,6 +563,14 @@ static ssize_t raydium_touch_lock_store(struct device *dev,
 			input_report_key(g_raydium_ts->input_dev, KEY_WAKEUP, false);
 			input_sync(g_raydium_ts->input_dev);
 		}
+
+		if (device_may_wakeup(&g_raydium_ts->client->dev)) {
+			LOGD(LOG_INFO, "[touch]Device may wakeup\n");
+			if (!enable_irq_wake(g_raydium_ts->irq))
+				g_raydium_ts->irq_wake = true;
+		} else {
+			LOGD(LOG_INFO, "[touch]Device not wakeup\n");
+		}
 #endif
 
 		LOGD(LOG_INFO, "[touch]RAD %s disable touch lock!!\n", __func__);
@@ -575,6 +596,15 @@ static ssize_t raydium_touch_lock_store(struct device *dev,
 		if (i32_ret < 0)
 			goto exit_i2c_error;
 #ifdef CONFIG_ARCH_VIENNA
+		if (device_may_wakeup(&g_raydium_ts->client->dev)) {
+			LOGD(LOG_INFO, "[touch]%s Device may wakeup\n", __func__);
+			if (g_raydium_ts->irq_wake) {
+				disable_irq_wake(g_raydium_ts->irq);
+				g_raydium_ts->irq_wake = false;
+			}
+		} else
+			LOGD(LOG_INFO, "[touch]%s Device not wakeup\n", __func__);
+
 		gpio_set_value(g_raydium_ts->rst_gpio, 0);
 		ret = raydium_enable_regulator(g_raydium_ts, false);
 		if (ret)

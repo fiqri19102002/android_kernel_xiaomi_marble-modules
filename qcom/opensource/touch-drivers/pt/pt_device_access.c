@@ -30,7 +30,7 @@
 
 #include "pt_regs.h"
 #include <linux/firmware.h>
-
+#include <linux/minmax.h>
 #include <linux/timer.h>
 #include <linux/timex.h>
 #include <linux/rtc.h>
@@ -199,10 +199,6 @@ struct heatmap_param {
 };
 #endif
 #define ABS(x)			(((x) < 0) ? -(x) : (x))
-
-#ifndef MIN
-#define MIN(a, b)  (((a) < (b)) ? (a) : (b))
-#endif
 
 #define PT_MAX_CONFIG_BYTES    256
 #define PT_TTHE_TUNER_GET_PANEL_DATA_FILE_NAME "get_panel_data"

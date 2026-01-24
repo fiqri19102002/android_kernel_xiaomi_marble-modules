@@ -181,6 +181,7 @@ when       who     what, where, why
    #include <stdlib.h>
 #endif
 #ifdef __KERNEL__
+#include <linux/minmax.h>
 #include <linux/types.h>
 #else
 #include <stdint.h>

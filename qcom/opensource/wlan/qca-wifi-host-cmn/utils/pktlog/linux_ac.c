@@ -29,6 +29,7 @@
  */
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/vmalloc.h>
 #include <linux/proc_fs.h>
@@ -805,10 +806,6 @@ static int pktlog_release(struct inode *i, struct file *f)
 
 	return errno;
 }
-
-#ifndef MIN
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-#endif
 
 /**
  * pktlog_read_proc_entry() - This function is used to read data from the

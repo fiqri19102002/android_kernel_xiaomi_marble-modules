@@ -17,6 +17,7 @@
  */
 
 #include "goodix_ts_core.h"
+#include <linux/minmax.h>
 #include <linux/rtc.h>
 #include <linux/timer.h>
 #include <linux/version.h>
@@ -110,11 +111,7 @@
 #define DRV_SEN_SELFCODE_REG_BRD			0x14556
 #define DIFF_CODE_DATA_REG_BRD				0x14D00
 
-
 #define ABS(val)			((val < 0)? -(val) : val)
-#ifndef MAX
-#define MAX(a, b)			((a > b)? a : b)
-#endif
 
 static bool module_initialized;
 

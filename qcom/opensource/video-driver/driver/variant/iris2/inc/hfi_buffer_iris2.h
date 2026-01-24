@@ -6,6 +6,7 @@
 #ifndef __HFI_BUFFER_IRIS2__
 #define __HFI_BUFFER_IRIS2__
 
+#include <linux/minmax.h>
 #include <linux/types.h>
 #include "hfi_property.h"
 

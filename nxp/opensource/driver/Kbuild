@@ -10,6 +10,10 @@ LINUXINCLUDE   += -I$(NFC_ROOT)/../../../qcom/opensource/securemsm-kernel/smcinv
 LINUXINCLUDE   += -I$(NFC_ROOT)/../../../qcom/opensource/securemsm-kernel/linux/
 LINUXINCLUDE   += -I$(NFC_ROOT)/../../../qcom/opensource/securemsm-kernel/include/linux/
 
+ifeq ($(CONFIG_ARCH_PARROT), y)
+ccflags-y += -DNFC_CLK_REQ_GPIO_WAKEUP
+endif
+
 obj-$(CONFIG_NXP_NFC_I2C) += nxp-nci.o
 
 #source files

@@ -1381,7 +1381,7 @@ static void raydium_work_handler(struct work_struct *work)
 		/*need check small area*/
 		if (((u8_tp_status[POS_GES_STATUS] == RAD_WAKE_UP
 		 && g_u8_wakeup_flag == false) || (u8_tp_status[POS_GES_STATUS] == 0))
-		 && (g_raydium_ts->touch_offload != 2)) {
+		 && (g_raydium_ts->touch_offload != 2 && g_raydium_ts->touch_offload != 1)) {
 		/*if (u8_tp_status[POS_GES_STATUS] == 0)	{*/
 #ifdef CONFIG_ARCH_VIENNA
 			input_report_key(g_raydium_ts->input_dev, BTN_TOUCH, false);

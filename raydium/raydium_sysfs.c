@@ -535,6 +535,12 @@ static ssize_t raydium_touch_lock_store(struct device *dev,
 			raydium_get_regulator(g_raydium_ts, false);
 			goto exit_i2c_error;
 		}
+
+		ret = pinctrl_select_state(g_raydium_ts->ts_pinctrl,
+				g_raydium_ts->pinctrl_state_active);
+		if (ret < 0)
+			LOGD(LOG_ERR, "[touch]failed to set pin to active state\n");
+
 #endif
 		if (gpio_is_valid(g_raydium_ts->rst_gpio)) {
 			gpio_set_value(g_raydium_ts->rst_gpio, 1);
@@ -605,7 +611,11 @@ static ssize_t raydium_touch_lock_store(struct device *dev,
 		} else
 			LOGD(LOG_INFO, "[touch]%s Device not wakeup\n", __func__);
 
-		gpio_set_value(g_raydium_ts->rst_gpio, 0);
+		ret = pinctrl_select_state(g_raydium_ts->ts_pinctrl,
+				g_raydium_ts->pinctrl_state_suspend);
+		if (ret < 0)
+			LOGD(LOG_ERR, "[touch]failed to set pin to suspend state\n");
+
 		ret = raydium_enable_regulator(g_raydium_ts, false);
 		if (ret)
 			dev_err(&client->dev, "Failed to disable regulators: rc=%d\n", ret);

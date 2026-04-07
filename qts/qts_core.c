@@ -1101,13 +1101,6 @@ static int qts_trusted_touch_pvm_vm_mode_enable(struct qts_data *qts_data)
 	atomic_set(&qts_data->trusted_touch_transition, 1);
 	mutex_lock(&qts_data->transition_lock);
 
-	if (qts_data->suspended) {
-		pr_err("Invalid power state for operation\n");
-		atomic_set(&qts_data->trusted_touch_transition, 0);
-		rc =  -EPERM;
-		goto error;
-	}
-
 	if (qts_data->vendor_ops.pre_la_tui_enable)
 		qts_data->vendor_ops.pre_la_tui_enable(qts_data->vendor_data);
 

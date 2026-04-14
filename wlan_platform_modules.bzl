@@ -1,7 +1,7 @@
 load("//build/kernel/kleaf:kernel.bzl", "ddk_module")
-load(":target_variants.bzl", "get_all_variants")
 load("@rules_pkg//pkg:install.bzl", "pkg_install")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_files", "strip_prefix")
+load(":target_variants.bzl", "get_all_variants", "targets", "get_16k_mtv")
 
 _default_module_enablement_list = [
     "cnss_nl",
@@ -10,8 +10,22 @@ _default_module_enablement_list = [
     "wlan_firmware_service",
 ]
 
-_cnss2_enabled_target = ["seraph", "niobe", "pineapple", "sun", "x1e80100", "volcano", "canoe", "hamoa", "sdxkova", "autogvm", "autoghgvm", "lahaina", "parrot", "art", "sa510m", "sa510m.1g"]
-_icnss2_enabled_target = ["blair", "pineapple", "monaco", "pitti", "volcano", "parrot", "sun", "canoe", "lahaina", "chora", "alor-le", "art", "bengal", "malabar"]
+_cnss2_enabled_target = ["seraph", "niobe", "pineapple", "sun", "x1e80100", "volcano", "canoe", "hamoa", "hamoa_la", "sdxkova", "autogvm", "autoghgvm", "lahaina", "parrot", "art", "art16k", "sa510m", "sa510m.1g"]
+_icnss2_enabled_target = ["blair", "pineapple", "monaco", "pitti", "volcano", "parrot", "sun", "canoe", "lahaina", "chora", "art", "art16k", "alor-le", "bengal", "malabar", "shikra"]
+
+def matching_la_variant(target_16k):
+    for target in targets:
+        if target_16k.startswith(target):
+            return target
+    return None
+
+def define_16k_aliases(module, target_16k, variant):
+    tv_16k = "{}_{}".format(target_16k, variant)
+    tv = "{}_{}".format(matching_la_variant(target_16k), variant)
+    native.alias(
+        name = "{}/{}_defconfig".format(module, tv_16k),
+        actual = "{}/{}_defconfig".format(module, tv),
+    )
 
 def _get_module_list(target, variant):
     tv = "{}_{}".format(target, variant)
@@ -138,7 +152,7 @@ def _define_modules_for_target_variant(target, variant):
         else:
             deps += [ kernel_header ]
 
-        if target != "autogvm" and target != "x1e80100" and target != "sdxkova" and target != "art" and target != "sa510m" and target != "sa510m.1g":
+        if target != "autogvm" and target != "x1e80100" and target != "sdxkova" and target != "art" and target != "art16k" and target != "sa510m" and target != "sa510m.1g":
             deps += select({
                   "//build/qcom_build_extensions:qtisocrepo_true": [
                     "//vendor/qcom/opensource/securemsm-kernel:{}_smcinvoke_dlkm".format(tv),
@@ -315,7 +329,7 @@ def _define_modules_for_target_variant(target, variant):
     else:
         cnss_utils_dep_list += [ kernel_header ]
 
-    if target == "sun" or target == "canoe" or target == "art" or target == "hamoa" or target == "chora":
+    if target == "sun" or target == "canoe" or target == "art" or target == "chora" or target == "art16k":
         cnss_utils_dep_list = cnss_utils_dep_list + ["//vendor/qcom/opensource/data-kernel/drivers/smem-mailbox:{}_smem_mailbox".format(tv),]
     if target == "sdxkova":
         tgt = "target-aarch64_cortex-a53_musl"
@@ -408,6 +422,8 @@ def _define_modules_for_target_variant(target, variant):
     )
 
 def define_modules():
+    for module, target, variant in get_16k_mtv():
+        define_16k_aliases(module, target, variant)
     for (t, v) in get_all_variants():
         print("v=", v)
         if t in _cnss2_enabled_target or t in _icnss2_enabled_target:

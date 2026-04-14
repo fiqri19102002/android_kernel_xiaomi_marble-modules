@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /* Copyright (c) 2015-2021, The Linux Foundation. All rights reserved. */
-/* Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved. */
+/* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries. */
 
 #ifndef WLAN_FIRMWARE_SERVICE_V01_H
 #define WLAN_FIRMWARE_SERVICE_V01_H
@@ -344,6 +344,7 @@ enum cnss_feature_v01 {
 	CNSS_PCIE_PERST_NO_PULL_V01 = 4,
 	CNSS_RC_EP_ULTRASHORT_CHANNEL_V01 = 5,
 	CNSS_AUX_UC_SUPPORT_V01 = 6,
+	CNSS_EXT_2P2RFA_SUPPORT_V01 = 7,
 	CNSS_MAX_FEATURE_V01 = 64,
 	CNSS_FEATURE_MAX_VAL_V01 = INT_MAX,
 };
@@ -543,6 +544,7 @@ enum wlfw_partner_chip_state_v01 {
 #define QMI_WLFW_CE_CMN_CFG_SUPPORT_V01 ((u64)0x10ULL)
 #define QMI_WLFW_WLAN_DUMP_OVER_BT_SUPPORT_V01 ((u64)0x20ULL)
 #define QMI_WLFW_BT_DUMP_OVER_WLAN_SUPPORT_V01 ((u64)0x40ULL)
+#define QMI_WLFW_DIRECT_REFILL_SUPPORT_V01 ((u64)0x80ULL)
 
 #define QMI_WLFW_DIRECT_LINK_SKU_SUPPORT_V01 ((u64)0x01ULL)
 

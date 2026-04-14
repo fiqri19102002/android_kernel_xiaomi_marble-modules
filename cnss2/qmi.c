@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #include <linux/module.h>
@@ -884,8 +884,13 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 
 	switch (bdf_type) {
 	case CNSS_BDF_ELF:
+		if (plat_priv->bdfname_dt[0] != 0) {
+			snprintf(filename_tmp, filename_len,
+				 plat_priv->bdfname_dt);
+			cnss_pr_dbg("filename_tmp:%s len:%d\n",
+				    filename_tmp, filename_len);
 		/* Board ID will be equal or less than 0xFF in GF mask case */
-		if (plat_priv->board_info.board_id == 0xFF) {
+		} else if (plat_priv->board_info.board_id == 0xFF) {
 			if (plat_priv->chip_info.chip_id & CHIP_ID_GF_MASK)
 				snprintf(filename_tmp, filename_len,
 					 ELF_BDF_FILE_NAME_GF);
@@ -3874,7 +3879,8 @@ int cnss_wlfw_server_exit(struct cnss_plat_data *plat_priv)
 {
 	int ret;
 
-	if (!plat_priv)
+	if (!plat_priv ||
+	    !test_bit(CNSS_QMI_WLFW_CONNECTED, &plat_priv->driver_state))
 		return -ENODEV;
 
 	clear_bit(CNSS_QMI_WLFW_CONNECTED, &plat_priv->driver_state);

@@ -43,6 +43,7 @@
 #define ADRASTEA_PATH_PREFIX   "adrastea/"
 #define WCN6450_PATH_PREFIX    "wcn6450/"
 #define WCN7750_PATH_PREFIX    "wcn7750/"
+#define WCN8750_PATH_PREFIX    "wcn8750/"
 #define ICNSS_MAX_FILE_NAME      45
 #define ICNSS_PCI_EP_WAKE_OFFSET 4
 #define ICNSS_DISABLE_M3_SSR 0
@@ -502,51 +503,109 @@ enum icnss_wlfw_gpio_config_type {
 	WLFW_GPIO_PARAMS_MAX_V01,
 };
 
-static const char * const icnss_gpio_output_str[] = {
-	[WLFW_GPIO_LOW_VALUE_V01] = "low",
-	[WLFW_GPIO_HIGH_VALUE_V01] = "high",
-	[QMI_WLFW_GPIO_CONFIG_INVALID_V01] = "invalid",
-};
+static inline const char *icnss_gpio_output_str(int value)
+{
+	switch (value) {
+	case WLFW_GPIO_LOW_VALUE_V01:
+		return "low";
+	case WLFW_GPIO_HIGH_VALUE_V01:
+		return "high";
+	case QMI_WLFW_GPIO_CONFIG_INVALID_V01:
+		return "invalid";
+	default:
+		return "unknown";
+	}
+}
 
-static const char * const icnss_gpio_bias_str[] = {
-	[WLFW_GPIO_NO_PULL_V01] = "no_pull",
-	[WLFW_GPIO_PULL_DOWN_V01] = "pull_down",
-	[WLFW_GPIO_KEEPER_V01] = "keeper",
-	[WLFW_GPIO_PULL_UP_V01] = "pull_up",
-	[QMI_WLFW_GPIO_CONFIG_INVALID_V01] = "invalid",
-};
+static inline const char *icnss_gpio_bias_str(int value)
+{
+	switch (value) {
+	case WLFW_GPIO_NO_PULL_V01:
+		return "no_pull";
+	case WLFW_GPIO_PULL_DOWN_V01:
+		return "pull_down";
+	case WLFW_GPIO_KEEPER_V01:
+		return "keeper";
+	case WLFW_GPIO_PULL_UP_V01:
+		return "pull_up";
+	case QMI_WLFW_GPIO_CONFIG_INVALID_V01:
+		return "invalid";
+	default:
+		return "unknown";
+	}
+}
 
-static const char * const icnss_gpio_direction_str[] = {
-	[WLFW_GPIO_INPUT_V01] = "input",
-	[WLFW_GPIO_OUTPUT_V01] = "output",
-	[WLFW_GPIO_BI_DIRECTIONAL_V01] = "bi_directional",
-	[QMI_WLFW_GPIO_CONFIG_INVALID_V01] = "invalid",
-};
+static inline const char *icnss_gpio_direction_str(int value)
+{
+	switch (value) {
+	case WLFW_GPIO_INPUT_V01:
+		return "input";
+	case WLFW_GPIO_OUTPUT_V01:
+		return "output";
+	case WLFW_GPIO_BI_DIRECTIONAL_V01:
+		return "bi_directional";
+	case QMI_WLFW_GPIO_CONFIG_INVALID_V01:
+		return "invalid";
+	default:
+		return "unknown";
+	}
+}
 
-static const char * const icnss_gpio_intr_trigger_str[] = {
-	[WLFW_GPIO_INTR_TRIGGER_HIGH_V01] = "high",
-	[WLFW_GPIO_INTR_TRIGGER_LOW_V01] = "low",
-	[WLFW_GPIO_INTR_TRIGGER_RISING_V01] = "rising",
-	[WLFW_GPIO_INTR_TRIGGER_FALLING_V01] = "falling",
-	[WLFW_GPIO_INTR_TRIGGER_DUAL_EDGE_V01] = "dual_edge",
-	[QMI_WLFW_GPIO_CONFIG_INVALID_V01] = "invalid",
-};
+static inline const char *icnss_gpio_intr_trigger_str(int value)
+{
+	switch (value) {
+	case WLFW_GPIO_INTR_TRIGGER_HIGH_V01:
+		return "high";
+	case WLFW_GPIO_INTR_TRIGGER_LOW_V01:
+		return "low";
+	case WLFW_GPIO_INTR_TRIGGER_RISING_V01:
+		return "rising";
+	case WLFW_GPIO_INTR_TRIGGER_FALLING_V01:
+		return "falling";
+	case WLFW_GPIO_INTR_TRIGGER_DUAL_EDGE_V01:
+		return "dual_edge";
+	case QMI_WLFW_GPIO_CONFIG_INVALID_V01:
+		return "invalid";
+	default:
+		return "unknown";
+	}
+}
 
-static const char * const icnss_gpio_type_str[] = {
-	[WLFW_GPIO_TYPE_PMIC_V01] = "pmic",
-	[WLFW_GPIO_TYPE_TLMM_V01] = "tlmm",
-	[QMI_WLFW_GPIO_CONFIG_INVALID_V01] = "invalid",
-};
+static inline const char *icnss_gpio_type_str(int value)
+{
+	switch (value) {
+	case WLFW_GPIO_TYPE_PMIC_V01:
+		return "pmic";
+	case WLFW_GPIO_TYPE_TLMM_V01:
+		return "tlmm";
+	case QMI_WLFW_GPIO_CONFIG_INVALID_V01:
+		return "invalid";
+	default:
+		return "unknown";
+	}
+}
 
-static const char * const icnss_gpio_name_str[] = {
-	[WLAN_EN_GPIO_V01] = "WLAN_EN",
-	[BT_EN_GPIO_V01] = "BT_EN",
-	[HOST_SOL_GPIO_V01] = "HOST_SOL",
-	[TARGET_SOL_GPIO_V01] = "DEV_SOL",
-	[WLAN_SW_CTRL_GPIO_V01] = "WLAN_SW_CTRL",
-	[RESET_B_GPIO_V01] = "RESET_B",
-	[QMI_WLFW_GPIO_INVALID_V01] = "INVALID",
-};
+static inline const char *icnss_gpio_name_str(int value)
+{
+	switch (value) {
+	case WLAN_EN_GPIO_V01:
+		return "WLAN_EN";
+	case BT_EN_GPIO_V01:
+		return "BT_EN";
+	case HOST_SOL_GPIO_V01:
+		return "HOST_SOL";
+	case TARGET_SOL_GPIO_V01:
+		return "DEV_SOL";
+	case WLAN_SW_CTRL_GPIO_V01:
+		return "WLAN_SW_CTRL";
+	case RESET_B_GPIO_V01:
+		return "RESET_B";
+	case QMI_WLFW_GPIO_INVALID_V01:
+		return "INVALID";
+	default:
+		return "unknown";
+	}
+}
 
 /**
  * struct icnss_xo_trim_config - Configuration for crystal oscillator (XO) trim
@@ -752,6 +811,7 @@ struct icnss_priv {
 	struct icnss_xo_trim_config xo_trim_conf;
 	struct nvmem_cell *wcn_ktb_info_reg;
 	u8 *wcn_ktb_info_buf;
+	bool legacy_ipc_transport;
 };
 
 struct icnss_reg_info {

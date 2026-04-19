@@ -15,11 +15,11 @@ def define_perf(target, variant):
             "rmnet_perf_udp.c",
             "rmnet_perf_udp.h",
         ],
-        kernel_build = "//msm-kernel:{}".format(kernel_build_variant),
+        kernel_build = "//vendor/xiaomi/marble-kernel:{}".format(kernel_build_variant),
         deps = [
-            "//msm-kernel:all_headers",
-            "//vendor/qcom/opensource/datarmnet:{}_rmnet_core".format(kernel_build_variant),
-            "//vendor/qcom/opensource/datarmnet:rmnet_core_headers",
+            "//vendor/xiaomi/marble-kernel:all_headers",
+            "//vendor/xiaomi/marble-modules/qcom/opensource/datarmnet:{}_rmnet_core".format(kernel_build_variant),
+            "//vendor/xiaomi/marble-modules/qcom/opensource/datarmnet:rmnet_core_headers",
         ],
         copts = ["-Wno-misleading-indentation"],
     )

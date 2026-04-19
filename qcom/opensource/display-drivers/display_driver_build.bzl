@@ -75,12 +75,12 @@ def display_module_entry(hdrs = []):
 
 def define_target_variant_modules(target, variant, registry, modules, config_options = []):
     kernel_build = "{}_{}".format(target, variant)
-    kernel_build_label = "//msm-kernel:{}".format(kernel_build)
+    kernel_build_label = "//vendor/xiaomi/marble-kernel:{}".format(kernel_build)
     modules = [registry.get(module_name) for module_name in modules]
     options = _get_kernel_build_options(modules, config_options)
     build_print = lambda message : print("{}: {}".format(kernel_build, message))
     formatter = lambda s : s.replace("%b", kernel_build).replace("%t", target)
-    headers = ["//msm-kernel:all_headers"] + registry.hdrs
+    headers = ["//vendor/xiaomi/marble-kernel:all_headers"] + registry.hdrs
     all_module_rules = []
 
     for module in modules:

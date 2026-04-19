@@ -11,9 +11,9 @@ def define_sch(target, variant):
         srcs = [
             "rmnet_sch_main.c",
         ],
-        deps = ["//msm-kernel:all_headers"],
+        deps = ["//vendor/xiaomi/marble-kernel:all_headers"],
         copts = ["-Wno-misleading-indentation"],
-        kernel_build = "//msm-kernel:{}".format(kernel_build_variant),
+        kernel_build = "//vendor/xiaomi/marble-kernel:{}".format(kernel_build_variant),
     )
 
     copy_to_dist_dir(

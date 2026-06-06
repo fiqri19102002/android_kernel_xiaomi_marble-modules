@@ -18,6 +18,7 @@ typedef s32 HFI_S32;
 typedef u64 HFI_U64;
 typedef HFI_U32 HFI_BOOL;
 
+
 #define HFI_ALIGNMENT_4096 (4096)
 
 #define BUF_SIZE_ALIGN_16 (16)

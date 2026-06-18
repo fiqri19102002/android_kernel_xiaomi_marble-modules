@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
-
-DISPLAY_ROOT=$(ROOTDIR)display/vendor/qcom/opensource/display-drivers
+M=$(PWD)
+DISPLAY_ROOT=$(KERNEL_SRC)/$(M)
 KBUILD_OPTIONS := DISPLAY_ROOT=$(DISPLAY_ROOT)
 
 ifeq ($(TARGET_SUPPORT),genericarmv8)

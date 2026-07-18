@@ -114,6 +114,7 @@ static const u32 gen7_ifpc_pwrup_reglist[] = {
 	GEN7_CP_PROTECT_REG+45,
 	GEN7_CP_PROTECT_REG+46,
 	GEN7_CP_PROTECT_REG+47,
+	GEN7_CP_AHB_CNTL,
 };
 
 static const u32 gen7_0_0_ifpc_pwrup_reglist[] = {
@@ -853,6 +854,10 @@ int gen7_start(struct adreno_device *adreno_dev)
 			FIELD_PREP(GENMASK(11, 8), 9) |
 			BIT(3) | BIT(2) |
 			FIELD_PREP(GENMASK(1, 0), 2));
+
+	/* Set the AHB default slave response to "OKAY" */
+	if (adreno_is_gen7_4_0(adreno_dev))
+		kgsl_regwrite(device, GEN7_CP_AHB_CNTL, 0x1);
 
 	/*
 	 * CP takes care of the restore during IFPC exit. We need to restore at slumber

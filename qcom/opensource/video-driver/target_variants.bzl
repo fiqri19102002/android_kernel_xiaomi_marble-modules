@@ -6,6 +6,7 @@ targets = [
     "sun",
     "vienna",
     "vienna-le",
+    "waipio",
 ]
 
 la_variants = [

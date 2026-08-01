@@ -30,6 +30,11 @@
 #include <sound/control.h>
 #include <linux/uaccess.h>
 #include <linux/vmalloc.h>
+#ifdef AW_KERNEL_VER_OVER_5_0_0
+#include <linux/time64.h>
+#else
+#include <linux/time.h>
+#endif
 
 #include "aw882xx.h"
 #include "aw882xx_log.h"
@@ -37,7 +42,7 @@
 #include "aw882xx_bin_parse.h"
 #include "aw882xx_spin.h"
 
-#define AW882XX_DRIVER_VERSION "v2.0.11"
+#define AW882XX_DRIVER_VERSION "v2.0.12"
 #define AW882XX_I2C_NAME "aw882xx_smartpa"
 
 #define AW_READ_CHIPID_RETRIES		5	/* 5 times */
@@ -70,7 +75,11 @@ static struct aw_componet_codec_ops aw_componet_codec_ops = {
 	.kcontrol_codec = snd_soc_kcontrol_component,
 	.codec_get_drvdata = snd_soc_component_get_drvdata,
 	.add_codec_controls = snd_soc_add_component_controls,
+#ifdef AW_KERNEL_VER_OVER_6_18_12
+	.unregister_codec = snd_soc_unregister_component_by_driver,
+#else
 	.unregister_codec = snd_soc_unregister_component,
+#endif
 	.register_codec = snd_soc_register_component,
 };
 #else
@@ -285,7 +294,7 @@ static int aw882xx_startup(struct snd_pcm_substream *substream,
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		aw_dev_info(aw882xx->dev, "playback enter");
-		/*load cali re*/
+
 		aw882xx_dev_init_cali_re(aw882xx->aw_pa);
 	} else {
 		aw_dev_info(aw882xx->dev, "capture enter");
@@ -345,8 +354,9 @@ static void aw882xx_shutdown(struct snd_pcm_substream *substream,
 		aw_componet_codec_ops.codec_get_drvdata(codec);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		aw882xx->rate = 0;
 		aw_dev_info(aw882xx->dev, "stream playback");
+
+		aw882xx->rate = 0;
 	} else {
 		aw_dev_info(aw882xx->dev, "stream capture");
 	}
@@ -3235,7 +3245,11 @@ static int aw882xx_i2c_probe(struct i2c_client *i2c, const struct i2c_device_id 
 	ret = sysfs_create_group(&i2c->dev.kobj, &aw882xx_attribute_group);
 	if (ret < 0) {
 		aw_dev_err(aw882xx->dev, "error creating sysfs attr files");
+#ifdef AW_KERNEL_VER_OVER_6_18_12
+		aw_componet_codec_ops.unregister_codec(&i2c->dev, NULL);
+#else
 		aw_componet_codec_ops.unregister_codec(&i2c->dev);
+#endif
 		return ret;
 	}
 
@@ -3294,7 +3308,12 @@ static int aw882xx_i2c_remove(struct i2c_client *i2c)
 	aw882xx_dev_remove(aw882xx->aw_pa);
 
 	/*unregister codec*/
+#ifdef AW_KERNEL_VER_OVER_6_18_12
+	aw882xx->codec_ops->unregister_codec(&i2c->dev, NULL);
+#else
 	aw882xx->codec_ops->unregister_codec(&i2c->dev);
+#endif
+
 
 	/*remove device to total list*/
 	mutex_lock(&g_aw882xx_lock);

@@ -882,6 +882,40 @@ static void aw_monitor_write_data_to_table(struct aw_device *aw_dev,
 
 }
 
+static void aw_monitor_apply_temp_scale(struct aw_device *aw_dev,
+		struct aw_table_info *temp_info)
+{
+	int i;
+	int16_t scale = aw_dev->monitor_desc.reg_temp_scale;
+	int16_t max_max_val = -32768;
+
+	if ((aw_dev->monitor_desc.monitor_data_src == AW_MON_SYS_DATA) || (aw_dev->temp_desc.reg == AW_REG_NONE)) {
+		aw_dev_info(aw_dev->dev, "get temperature from system, not apply scale");
+		return;
+	}
+
+	for (i = 0; i < temp_info->table_num; i++) {
+		temp_info->aw_table[i].min_val *= scale;
+		temp_info->aw_table[i].max_val *= scale;
+		if (temp_info->aw_table[i].max_val > max_max_val)
+			max_max_val = temp_info->aw_table[i].max_val;
+	}
+
+	for (i = 0; i < temp_info->table_num; i++) {
+		if (temp_info->aw_table[i].max_val != max_max_val)
+			temp_info->aw_table[i].max_val += (scale - 1);
+	}
+
+	for (i = 0; i < temp_info->table_num; i++) {
+		aw_dev_info(aw_dev->dev,
+			"scaled min_val:%d, max_val:%d, ipeak:0x%x, gain:0x%x, vmax:0x%x",
+			temp_info->aw_table[i].min_val,
+			temp_info->aw_table[i].max_val,
+			temp_info->aw_table[i].ipeak,
+			temp_info->aw_table[i].gain,
+			temp_info->aw_table[i].vmax);
+	}
+}
 
 static int aw_monitor_parse_temp_data(struct aw_device *aw_dev, uint8_t *data)
 {
@@ -906,6 +940,8 @@ static int aw_monitor_parse_temp_data(struct aw_device *aw_dev, uint8_t *data)
 	temp_info->table_num = monitor_hdr->temp_num;
 	aw_monitor_write_data_to_table(aw_dev, temp_info,
 		&data[monitor_hdr->temp_offset]);
+	aw_monitor_apply_temp_scale(aw_dev, temp_info);
+
 	aw_dev_info(aw_dev->dev, "===parse temp end ===");
 	return 0;
 }
@@ -933,6 +969,8 @@ static int aw_monitor_parse_temp_data_v_0_1_1(struct aw_device *aw_dev, uint8_t 
 	temp_info->table_num = monitor_hdr->temp_num;
 	aw_monitor_write_data_to_table(aw_dev, temp_info,
 		&data[monitor_hdr->temp_offset]);
+	aw_monitor_apply_temp_scale(aw_dev, temp_info);
+
 	aw_dev_info(aw_dev->dev, "===parse temp end ===");
 	return 0;
 }
@@ -960,6 +998,8 @@ static int aw_monitor_parse_temp_data_v_0_1_2(struct aw_device *aw_dev, uint8_t 
 	temp_info->table_num = monitor_hdr->temp_num;
 	aw_monitor_write_data_to_table(aw_dev, temp_info,
 		&data[monitor_hdr->temp_offset]);
+	aw_monitor_apply_temp_scale(aw_dev, temp_info);
+
 	aw_dev_info(aw_dev->dev, "===parse temp end ===");
 	return 0;
 }

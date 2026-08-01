@@ -19,6 +19,8 @@
 #include "aw882xx_monitor.h"
 #include "aw882xx_dsp.h"
 
+// #define AW_DTC_ENABLE
+
 #define AW_VOLUME_STEP_DB	(6 * 2)
 #define AW_REG_NONE		(0xFF)
 #define AW_NAME_MAX		(50)
@@ -329,6 +331,17 @@ struct algo_ramp_params {
 	int32_t ramp_time;
 };
 
+struct dtc_status {
+	int32_t interval_time;
+	int64_t tma_pre;
+	int64_t tcm_pre;
+};
+
+struct aw_dtc_desc {
+	long long last_time;
+	struct dtc_status dtc;
+};
+
 #define AW_IOCTL_MAGIC_S			'w'
 #define AW_IOCTL_GET_ALGO_AUTH			_IOWR(AW_IOCTL_MAGIC_S, 1, struct algo_auth_data)
 #define AW_IOCTL_SET_ALGO_AUTH			_IOWR(AW_IOCTL_MAGIC_S, 2, struct algo_auth_data)
@@ -351,6 +364,9 @@ struct aw_device {
 	unsigned int txen_st;
 	unsigned int lpc_st;
 	unsigned int rst_list_flag;
+	unsigned int psm_init_st;
+	unsigned int mpd_init_st;
+	unsigned int dsmzth_init_st;
 
 	unsigned char cur_prof;  /*current profile index*/
 	unsigned char set_prof;  /*set profile index*/
@@ -408,6 +424,8 @@ struct aw_device {
 	struct aw_auth_desc auth_desc;
 	struct aw_switch_desc lpc_desc;
 
+	struct aw_dtc_desc dtc_desc;
+
 	struct aw_device_ops ops;
 	struct list_head list_node;
 };
@@ -459,4 +477,3 @@ int aw882xx_dev_remove(struct aw_device *aw_dev);
 int aw882xx_dev_check_ef_lock(struct aw_device *aw_dev);
 
 #endif
-

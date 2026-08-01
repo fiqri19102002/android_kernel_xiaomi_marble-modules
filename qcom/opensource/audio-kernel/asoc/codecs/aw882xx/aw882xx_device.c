@@ -531,8 +531,27 @@ static unsigned int aw_dev_reg_value_check(struct aw_device *aw_dev, unsigned in
 		aw_dev->lpc_st = reg_val & (~aw_dev->lpc_desc.mask);
 		aw_dev_info(aw_dev->dev, "lpc_st=0x%04x", aw_dev->lpc_st);
 	}
-	return reg_val;
 
+	/* get psm_init_st */
+	if (reg_addr == aw_dev->psm_desc.reg) {
+		aw_dev->psm_init_st = reg_val & (~aw_dev->psm_desc.mask);
+		aw_dev_info(aw_dev->dev, "psm_st=0x%04x", aw_dev->psm_init_st);
+	}
+
+	/* get mpd_init_st */
+	if (reg_addr == aw_dev->mpd_desc.reg) {
+		aw_dev->mpd_init_st = reg_val & (~aw_dev->mpd_desc.mask);
+		aw_dev_info(aw_dev->dev, "mpd_st=0x%04x", aw_dev->mpd_init_st);
+	}
+
+	/* get dsmzth_init_st */
+	if (reg_addr == aw_dev->dsmzth_desc.reg) {
+		aw_dev->dsmzth_init_st = reg_val & (~aw_dev->dsmzth_desc.mask);
+		if (aw_dev->dsmzth_init_st)
+			aw_dev->dsmzth_desc.enable = aw_dev->dsmzth_init_st;
+		aw_dev_info(aw_dev->dev, "dsmzth_st=0x%04x", aw_dev->dsmzth_init_st);
+	}
+	return reg_val;
 }
 
 
@@ -830,6 +849,51 @@ static void aw_dev_vol_offset_update(struct aw_device *aw_dev)
 	aw882xx_dsp_write_vol_offset(aw_dev, offset);
 }
 
+#ifdef AW_DTC_ENABLE
+#ifdef AW_KERNEL_VER_OVER_5_0_0
+static long long aw_get_kernel_rtc_time(void)
+{
+	struct timespec64 tv;
+
+	ktime_get_real_ts64(&tv);
+
+	return (tv.tv_sec * 1000 + tv.tv_nsec / 1000000);
+}
+#else
+static long long aw_get_kernel_rtc_time(void)
+{
+	struct timeval tv;
+
+	do_gettimeofday(&tv);
+
+	return (tv.tv_sec * 1000 + tv.tv_usec / 1000);
+}
+#endif
+
+static int aw_dev_backup_dtc(struct aw_device *aw_dev)
+{
+	aw_dev->dtc_desc.last_time = aw_get_kernel_rtc_time();
+	return aw882xx_dsp_read_dtc_status(aw_dev, (char *)&(aw_dev->dtc_desc.dtc), sizeof(struct dtc_status));
+}
+
+static int aw_dev_sync_dtc(struct aw_device *aw_dev)
+{
+	long long dtc = aw_get_kernel_rtc_time();
+
+	if (!aw_dev->dtc_desc.last_time) {
+		aw_dev->dtc_desc.dtc.interval_time = -1;
+	} else {
+		long long time = dtc - aw_dev->dtc_desc.last_time;
+
+		if ((time > 0x7FFFFFFF) || (time <= 0))
+			aw_dev->dtc_desc.dtc.interval_time = -1;
+		else
+			aw_dev->dtc_desc.dtc.interval_time = time / 100;
+	}
+
+	return aw882xx_dsp_write_dtc_status(aw_dev, (char *)&(aw_dev->dtc_desc.dtc), sizeof(struct dtc_status));
+}
+#endif
 
 static void aw_dev_boost_type_set(struct aw_device *aw_dev)
 {
@@ -994,6 +1058,9 @@ int aw882xx_device_start(struct aw_device *aw_dev, bool lock_valid)
 	aw882xx_monitor_start(&aw_dev->monitor_desc);
 	aw_dev_cali_re_update(aw_dev);
 	aw_dev_vol_offset_update(aw_dev);
+#ifdef AW_DTC_ENABLE
+	aw_dev_sync_dtc(aw_dev);
+#endif
 #ifdef AW_ALGO_AUTH_DSP
 	aw_dev_algo_authentication(aw_dev);
 #endif
@@ -1012,7 +1079,9 @@ int aw882xx_device_stop(struct aw_device *aw_dev)
 		aw_dev_dbg(aw_dev->dev, "already power off");
 		return 0;
 	}
-
+#ifdef AW_DTC_ENABLE
+	aw_dev_backup_dtc(aw_dev);
+#endif
 	aw_dev->status = AW_DEV_PW_OFF;
 
 	aw882xx_monitor_stop(&aw_dev->monitor_desc);
@@ -1259,9 +1328,14 @@ int aw882xx_dev_dc_status(struct aw_device *aw_dev)
 
 void aw882xx_dev_iv_forbidden_output(struct aw_device *aw_dev, bool power_waste)
 {
-	aw_dev_switch(aw_dev, &aw_dev->psm_desc, power_waste);
-	aw_dev_switch(aw_dev, &aw_dev->mpd_desc, power_waste);
-	aw_dev_switch(aw_dev, &aw_dev->dsmzth_desc, power_waste);
+	if (aw_dev->psm_init_st)
+		aw_dev_switch(aw_dev, &aw_dev->psm_desc, power_waste);
+
+	if (aw_dev->mpd_init_st)
+		aw_dev_switch(aw_dev, &aw_dev->mpd_desc, power_waste);
+
+	if (aw_dev->dsmzth_init_st)
+		aw_dev_switch(aw_dev, &aw_dev->dsmzth_desc, power_waste);
 }
 
 /******************************************************
@@ -1606,3 +1680,4 @@ int aw882xx_dev_check_ef_lock(struct aw_device *aw_dev)
 
 	return 0;
 }
+

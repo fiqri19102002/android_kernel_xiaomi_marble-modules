@@ -1957,6 +1957,9 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-doze-lbm-nolp-command",
 	"mi,mdss-dsi-bl-sync-on-command",
 	"mi,mdss-dsi-bl-sync-off-command",
+	"mi,mdss-dsi-fps-60-gamma-command",
+	"mi,mdss-dsi-fps-90-gamma-command",
+	"mi,mdss-dsi-fps-120-gamma-command",
 };
 
 const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
@@ -1991,6 +1994,9 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-doze-lbm-nolp-command-state",
 	"mi,mdss-dsi-bl-sync-on-command-state",
 	"mi,mdss-dsi-bl-sync-off-command-state",
+	"mi,mdss-dsi-fps-60-gamma-command-state",
+	"mi,mdss-dsi-fps-90-gamma-command-state",
+	"mi,mdss-dsi-fps-120-gamma-command-state",
 };
 
 int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt)
@@ -4927,6 +4933,8 @@ int dsi_panel_post_enable(struct dsi_panel *panel)
 		       panel->name, rc);
 		goto error;
 	}
+
+	dsi_panel_mi_fps_gamma(panel);
 error:
 	mutex_unlock(&panel->panel_lock);
 	return rc;

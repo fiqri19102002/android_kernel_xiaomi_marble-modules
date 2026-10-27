@@ -69,4 +69,8 @@ int dsi_panel_mi_set_doze(struct dsi_panel *panel, bool doze);
 
 void dsi_panel_mi_esd_irq_ctrl(struct dsi_panel *panel, bool enable);
 
+bool dsi_panel_mi_has_fps_gamma(struct dsi_panel *panel);
+
+void dsi_panel_mi_fps_gamma(struct dsi_panel *panel);
+
 #endif /* _DSI_PANEL_MI_H_ */

@@ -33,6 +33,8 @@ enum dsi_panel_mi_doze {
  * @bl_sync:      BL sync is enabled.
  * @power_off_delay_ms: Delays after disabling the panel enable GPIO and
  *                after resetting the panel while powering off.
+ * @doze_cmd_fps: Refresh rate the doze commands are made for, 0 for any.
+ * @doze_fallback_dbv: HBM and LBM doze DBVs written at other refresh rates.
  */
 struct dsi_panel_mi {
 	u32 last_bl_lvl;
@@ -50,6 +52,9 @@ struct dsi_panel_mi {
 	bool bl_sync;
 
 	u32 power_off_delay_ms[2];
+
+	u32 doze_cmd_fps;
+	u32 doze_fallback_dbv[2];
 };
 
 void dsi_panel_mi_parse(struct dsi_panel *panel);

@@ -25,6 +25,10 @@ enum dsi_panel_mi_doze {
  * @doze_hbm_threshold: Doze backlight levels above this select doze HBM.
  * @doze:         Panel is in a low power mode.
  * @doze_active:  Doze brightness mode currently set on the panel.
+ * @esd_irq:      Interrupt of the panel error flag, 0 if not available.
+ * @esd_irq_flags: Trigger flags of @esd_irq.
+ * @esd_irq_enabled: @esd_irq is enabled.
+ * @esd_ignore_in_doze: Ignore panel errors while in doze.
  */
 struct dsi_panel_mi {
 	u32 last_bl_lvl;
@@ -32,6 +36,11 @@ struct dsi_panel_mi {
 	u32 doze_hbm_threshold;
 	bool doze;
 	enum dsi_panel_mi_doze doze_active;
+
+	int esd_irq;
+	u32 esd_irq_flags;
+	bool esd_irq_enabled;
+	bool esd_ignore_in_doze;
 };
 
 void dsi_panel_mi_parse(struct dsi_panel *panel);
@@ -43,5 +52,7 @@ void dsi_panel_mi_reset_state(struct dsi_panel *panel);
 bool dsi_panel_mi_has_doze(struct dsi_panel *panel);
 
 int dsi_panel_mi_set_doze(struct dsi_panel *panel, bool doze);
+
+void dsi_panel_mi_esd_irq_ctrl(struct dsi_panel *panel, bool enable);
 
 #endif /* _DSI_PANEL_MI_H_ */

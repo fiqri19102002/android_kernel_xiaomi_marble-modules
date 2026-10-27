@@ -534,6 +534,7 @@ struct dsi_host_common_cfg {
 	u32 dma_sched_window;
 	u32 vpadding;
 	bool line_insertion_enable;
+	u32 clk_strength;
 };
 
 /**

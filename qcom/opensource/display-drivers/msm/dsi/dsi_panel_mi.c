@@ -55,6 +55,9 @@ void dsi_panel_mi_parse(struct dsi_panel *panel)
 	else
 		mi->doze_hbm_threshold = 100;
 
+	utils->read_u32(utils->data, "mi,bl-sync-threshold",
+			&mi->bl_sync_threshold);
+
 	dsi_panel_mi_parse_esd(panel);
 }
 
@@ -71,6 +74,14 @@ bool dsi_panel_mi_set_backlight(struct dsi_panel *panel, u32 *bl_lvl)
 		return true;
 	}
 
+	if (mi->bl_sync_threshold &&
+	    (*bl_lvl > mi->bl_sync_threshold) != mi->bl_sync) {
+		mi->bl_sync = !mi->bl_sync;
+		dsi_panel_tx_cmd_set(panel, mi->bl_sync ?
+				DSI_CMD_SET_MI_BL_SYNC_ON :
+				DSI_CMD_SET_MI_BL_SYNC_OFF);
+	}
+
 	return false;
 }
 
@@ -79,6 +90,7 @@ void dsi_panel_mi_reset_state(struct dsi_panel *panel)
 {
 	panel->mi.doze = false;
 	panel->mi.doze_active = DSI_PANEL_MI_DOZE_OFF;
+	panel->mi.bl_sync = false;
 }
 
 bool dsi_panel_mi_has_doze(struct dsi_panel *panel)

@@ -29,6 +29,8 @@ enum dsi_panel_mi_doze {
  * @esd_irq_flags: Trigger flags of @esd_irq.
  * @esd_irq_enabled: @esd_irq is enabled.
  * @esd_ignore_in_doze: Ignore panel errors while in doze.
+ * @bl_sync_threshold: DBVs above this need the BL sync commands, 0 if unused.
+ * @bl_sync:      BL sync is enabled.
  */
 struct dsi_panel_mi {
 	u32 last_bl_lvl;
@@ -41,6 +43,9 @@ struct dsi_panel_mi {
 	u32 esd_irq_flags;
 	bool esd_irq_enabled;
 	bool esd_ignore_in_doze;
+
+	u32 bl_sync_threshold;
+	bool bl_sync;
 };
 
 void dsi_panel_mi_parse(struct dsi_panel *panel);

@@ -965,14 +965,20 @@ static void _sde_kms_drm_check_dpms(struct drm_atomic_state *old_state,
 		if (!crtc)
 			continue;
 
-		new_fps = drm_mode_vrefresh(&crtc->state->mode);
+		if (crtc->state->mode.hskew)
+			new_fps = crtc->state->mode.hskew;
+		else
+			new_fps = drm_mode_vrefresh(&crtc->state->mode);
 		new_mode = _sde_kms_get_blank(crtc->state, connector->state);
 
 		if (old_conn_state->crtc) {
 			old_crtc_state = drm_atomic_get_existing_crtc_state(
 					old_state, old_conn_state->crtc);
 
-			old_fps = drm_mode_vrefresh(&old_crtc_state->mode);
+			if (old_crtc_state->mode.hskew)
+				old_fps = old_crtc_state->mode.hskew;
+			else
+				old_fps = drm_mode_vrefresh(&old_crtc_state->mode);
 			old_mode = _sde_kms_get_blank(old_crtc_state,
 							old_conn_state);
 		} else {

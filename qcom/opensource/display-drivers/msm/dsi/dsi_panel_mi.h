@@ -11,6 +11,7 @@
 #include "dsi_defs.h"
 
 struct dsi_panel;
+struct dsi_display_mode;
 
 enum dsi_panel_mi_doze {
 	DSI_PANEL_MI_DOZE_OFF,
@@ -35,6 +36,8 @@ enum dsi_panel_mi_doze {
  *                after resetting the panel while powering off.
  * @doze_cmd_fps: Refresh rate the doze commands are made for, 0 for any.
  * @doze_fallback_dbv: HBM and LBM doze DBVs written at other refresh rates.
+ * @dfps_vfp:     <fps vfp> pairs overriding the dynamic fps front porches.
+ * @dfps_vfp_count: Number of u32 in @dfps_vfp.
  */
 struct dsi_panel_mi {
 	u32 last_bl_lvl;
@@ -55,6 +58,9 @@ struct dsi_panel_mi {
 
 	u32 doze_cmd_fps;
 	u32 doze_fallback_dbv[2];
+
+	u32 dfps_vfp[8];
+	int dfps_vfp_count;
 };
 
 void dsi_panel_mi_parse(struct dsi_panel *panel);
@@ -72,5 +78,8 @@ void dsi_panel_mi_esd_irq_ctrl(struct dsi_panel *panel, bool enable);
 bool dsi_panel_mi_has_fps_gamma(struct dsi_panel *panel);
 
 void dsi_panel_mi_fps_gamma(struct dsi_panel *panel);
+
+void dsi_panel_mi_override_dfps_vfp(struct dsi_panel *panel,
+		struct dsi_display_mode *mode);
 
 #endif /* _DSI_PANEL_MI_H_ */

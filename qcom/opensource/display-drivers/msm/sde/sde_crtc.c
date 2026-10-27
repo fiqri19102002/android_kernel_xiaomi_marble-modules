@@ -4788,7 +4788,7 @@ void sde_crtc_commit_kickoff(struct drm_crtc *crtc,
 		 */
 		params.affected_displays = _sde_crtc_get_displays_affected(crtc,
 				crtc->state);
-		if (sde_encoder_prepare_for_kickoff(encoder, &params))
+		if (sde_encoder_prepare_for_kickoff(encoder, &params, old_state))
 			sde_crtc->needs_hw_reset = true;
 
 		if (idle_pc_state != IDLE_PC_NONE)
@@ -8052,7 +8052,7 @@ void __sde_crtc_static_cache_read_work(struct kthread_work *work)
 
 	/* Enable clocks and IRQ and wait for VBLANK */
 	params.affected_displays = _sde_crtc_get_displays_affected(crtc, crtc->state);
-	sde_encoder_prepare_for_kickoff(drm_enc, &params);
+	sde_encoder_prepare_for_kickoff(drm_enc, &params, NULL);
 	sde_encoder_kickoff(drm_enc, false);
 	sde_encoder_wait_for_event(drm_enc, MSM_ENC_VBLANK);
 

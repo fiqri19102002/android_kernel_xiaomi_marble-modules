@@ -1192,6 +1192,10 @@ static int dsi_panel_parse_misc_host_config(struct dsi_host_common_cfg *host,
 		host->dma_sched_window = window;
 	rc = utils->read_u32(utils->data, "qcom,vert-padding-value", &host->vpadding);
 	host->line_insertion_enable = (rc || host->vpadding <= 0) ? false : true;
+
+	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-clk-strength", &val);
+	host->clk_strength = rc ? 0 : val;
+
 	DSI_DEBUG("[%s] DMA scheduling parameters Line: %d Window: %d\n", name,
 			host->dma_sched_line, host->dma_sched_window);
 	return 0;

@@ -57,6 +57,8 @@ void dsi_panel_mi_parse(struct dsi_panel *panel)
 
 	utils->read_u32(utils->data, "mi,bl-sync-threshold",
 			&mi->bl_sync_threshold);
+	utils->read_u32_array(utils->data, "mi,power-off-delay-ms",
+			mi->power_off_delay_ms, ARRAY_SIZE(mi->power_off_delay_ms));
 
 	dsi_panel_mi_parse_esd(panel);
 }

@@ -36,6 +36,7 @@ enum dsi_panel_mi_doze {
  *                after resetting the panel while powering off.
  * @doze_cmd_fps: Refresh rate the doze commands are made for, 0 for any.
  * @doze_fallback_dbv: HBM and LBM doze DBVs written at other refresh rates.
+ * @underflow_black: Show black instead of blue on video mode underflows.
  * @dfps_vfp:     <fps vfp> pairs overriding the dynamic fps front porches.
  * @dfps_vfp_count: Number of u32 in @dfps_vfp.
  */
@@ -59,6 +60,7 @@ struct dsi_panel_mi {
 	u32 doze_cmd_fps;
 	u32 doze_fallback_dbv[2];
 
+	bool underflow_black;
 	u32 dfps_vfp[8];
 	int dfps_vfp_count;
 };

@@ -1358,6 +1358,45 @@ static void _dsi_display_setup_misr(struct dsi_display *display)
 	}
 }
 
+static void dsi_display_notify_panel_power_state(
+		struct dsi_display *display, u32 value)
+{
+	bool changed;
+
+	mutex_lock(&display->panel_power_state_lock);
+	changed = display->panel_power_state != value;
+	display->panel_power_state = value;
+	mutex_unlock(&display->panel_power_state_lock);
+
+	if (changed)
+		sysfs_notify(&display->pdev->dev.kobj, NULL,
+			"panel_power_state");
+}
+
+static ssize_t panel_power_state_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct dsi_display *display = dev_get_drvdata(dev);
+	u32 value;
+
+	mutex_lock(&display->panel_power_state_lock);
+	value = display->panel_power_state;
+	mutex_unlock(&display->panel_power_state_lock);
+
+	return sysfs_emit(buf, "%u\n", value);
+}
+
+static DEVICE_ATTR_RO(panel_power_state);
+
+static struct attribute *dsi_display_state_attrs[] = {
+	&dev_attr_panel_power_state.attr,
+	NULL,
+};
+
+static const struct attribute_group dsi_display_state_group = {
+	.attrs = dsi_display_state_attrs,
+};
+
 int dsi_display_set_power(struct drm_connector *connector,
 		int power_mode, void *disp)
 {
@@ -1382,6 +1421,8 @@ int dsi_display_set_power(struct drm_connector *connector,
 			rc = dsi_panel_set_nolp(display->panel);
 		break;
 	case SDE_MODE_DPMS_OFF:
+		dsi_display_notify_panel_power_state(display, power_mode);
+		return rc;
 	default:
 		return rc;
 	}
@@ -1390,8 +1431,10 @@ int dsi_display_set_power(struct drm_connector *connector,
 	DSI_DEBUG("Power mode transition from %d to %d %s",
 			display->panel->power_mode, power_mode,
 			rc ? "failed" : "successful");
-	if (!rc)
+	if (!rc) {
 		display->panel->power_mode = power_mode;
+		dsi_display_notify_panel_power_state(display, power_mode);
+	}
 
 	return rc;
 }
@@ -4334,6 +4377,13 @@ static int dsi_display_res_init(struct dsi_display *display)
 		display->hw_ownership = true;
 	}
 
+	mutex_init(&display->panel_power_state_lock);
+
+	display->panel_power_state = SDE_MODE_DPMS_OFF;
+	if (sysfs_create_group(&display->pdev->dev.kobj,
+			&dsi_display_state_group))
+		DSI_ERR("failed to create state sysfs nodes\n");
+
 	return 0;
 error_panel_put:
 	dsi_panel_put(display->panel);
@@ -4358,6 +4408,9 @@ static int dsi_display_res_deinit(struct dsi_display *display)
 		dsi_phy_put(ctrl->phy);
 		dsi_ctrl_put(ctrl->ctrl);
 	}
+
+	sysfs_remove_group(&display->pdev->dev.kobj,
+		&dsi_display_state_group);
 
 	if (display->panel)
 		dsi_panel_put(display->panel);

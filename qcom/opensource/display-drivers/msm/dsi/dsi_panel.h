@@ -343,6 +343,10 @@ static inline bool dsi_panel_is_type_oled(struct dsi_panel *panel)
 
 void dsi_panel_esd_irq_ctrl(struct dsi_panel *panel, bool enable);
 
+bool dsi_panel_has_fps_gamma(struct dsi_panel *panel);
+
+void dsi_panel_fps_gamma(struct dsi_panel *panel);
+
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node,
 				struct device_node *parser_node,

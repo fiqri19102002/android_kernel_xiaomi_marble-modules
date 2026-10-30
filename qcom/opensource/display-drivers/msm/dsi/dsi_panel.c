@@ -2038,6 +2038,9 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-doze-lbm-nolp-command",
 	"mi,mdss-dsi-bl-sync-on-command",
 	"mi,mdss-dsi-bl-sync-off-command",
+	"mi,mdss-dsi-fps-60-gamma-command",
+	"mi,mdss-dsi-fps-90-gamma-command",
+	"mi,mdss-dsi-fps-120-gamma-command",
 };
 
 const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
@@ -2072,6 +2075,9 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-doze-lbm-nolp-command-state",
 	"mi,mdss-dsi-bl-sync-on-command-state",
 	"mi,mdss-dsi-bl-sync-off-command-state",
+	"mi,mdss-dsi-fps-60-gamma-command-state",
+	"mi,mdss-dsi-fps-90-gamma-command-state",
+	"mi,mdss-dsi-fps-120-gamma-command-state",
 };
 
 int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt)
@@ -3750,6 +3756,43 @@ void dsi_panel_esd_irq_ctrl(struct dsi_panel *panel, bool enable)
 	}
 
 	panel->esd_irq_enabled = enable;
+}
+
+static enum dsi_cmd_set_type dsi_panel_fps_gamma_type(struct dsi_panel *panel)
+{
+	switch (panel->cur_mode->timing.refresh_rate) {
+	case 60:
+		return DSI_CMD_SET_MI_FPS_60_GAMMA;
+	case 90:
+		return DSI_CMD_SET_MI_FPS_90_GAMMA;
+	case 120:
+		return DSI_CMD_SET_MI_FPS_120_GAMMA;
+	default:
+		return DSI_CMD_SET_MAX;
+	}
+}
+
+bool dsi_panel_has_fps_gamma(struct dsi_panel *panel)
+{
+	enum dsi_cmd_set_type type;
+
+	if (!panel->cur_mode || !panel->cur_mode->priv_info)
+		return false;
+
+	type = dsi_panel_fps_gamma_type(panel);
+
+	return type != DSI_CMD_SET_MAX &&
+			panel->cur_mode->priv_info->cmd_sets[type].count;
+}
+
+/* Called with panel_lock held, after switching the video mode refresh rate */
+void dsi_panel_fps_gamma(struct dsi_panel *panel)
+{
+	if (!panel->panel_initialized || !dsi_panel_has_fps_gamma(panel))
+		return;
+
+	if (dsi_panel_tx_cmd_set(panel, dsi_panel_fps_gamma_type(panel)))
+		DSI_ERR("[%s] failed to switch fps gamma\n", panel->name);
 }
 
 static void dsi_panel_update_util(struct dsi_panel *panel,

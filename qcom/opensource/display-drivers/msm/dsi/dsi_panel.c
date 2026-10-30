@@ -401,6 +401,9 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 	if (gpio_is_valid(panel->reset_config.disp_en_gpio))
 		gpio_set_value(panel->reset_config.disp_en_gpio, 0);
 
+	if (panel->power_off_delay_ms[0])
+		mdelay(panel->power_off_delay_ms[0]);
+
 	if (gpio_is_valid(panel->reset_config.reset_gpio) &&
 					!panel->reset_gpio_always_on)
 		gpio_set_value(panel->reset_config.reset_gpio, 0);
@@ -414,6 +417,9 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 			DSI_WARN("set dir for panel test gpio failed rc=%d\n",
 				 rc);
 	}
+
+	if (panel->power_off_delay_ms[1])
+		mdelay(panel->power_off_delay_ms[1]);
 
 	rc = dsi_panel_set_pinctrl_state(panel, false);
 	if (rc) {
@@ -2384,6 +2390,9 @@ static int dsi_panel_parse_misc_features(struct dsi_panel *panel)
 
 	utils->read_u32(utils->data, "mi,bl-sync-threshold",
 			&panel->bl_sync_threshold);
+
+	utils->read_u32_array(utils->data, "mi,power-off-delay-ms",
+			panel->power_off_delay_ms, ARRAY_SIZE(panel->power_off_delay_ms));
 
 	return 0;
 }

@@ -309,6 +309,8 @@ struct dsi_panel {
 
 	u32 bl_sync_threshold;
 	bool bl_sync;
+
+	u32 power_off_delay_ms[2];
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)

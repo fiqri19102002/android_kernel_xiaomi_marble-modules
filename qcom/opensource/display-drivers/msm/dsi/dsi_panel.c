@@ -638,6 +638,14 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 		goto exit;
 	}
 
+	if (panel->bl_sync_threshold &&
+	    (bl_lvl > panel->bl_sync_threshold) != panel->bl_sync) {
+		panel->bl_sync = !panel->bl_sync;
+		dsi_panel_tx_cmd_set(panel, panel->bl_sync ?
+				DSI_CMD_SET_MI_BL_SYNC_ON :
+				DSI_CMD_SET_MI_BL_SYNC_OFF);
+	}
+
 	if (panel->bl_config.bl_inverted_dbv)
 		bl_lvl = (((bl_lvl & 0xff) << 8) | (bl_lvl >> 8));
 
@@ -2005,6 +2013,8 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-doze-lbm-command",
 	"mi,mdss-dsi-doze-hbm-nolp-command",
 	"mi,mdss-dsi-doze-lbm-nolp-command",
+	"mi,mdss-dsi-bl-sync-on-command",
+	"mi,mdss-dsi-bl-sync-off-command",
 };
 
 const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
@@ -2037,6 +2047,8 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-doze-lbm-command-state",
 	"mi,mdss-dsi-doze-hbm-nolp-command-state",
 	"mi,mdss-dsi-doze-lbm-nolp-command-state",
+	"mi,mdss-dsi-bl-sync-on-command-state",
+	"mi,mdss-dsi-bl-sync-off-command-state",
 };
 
 int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt)
@@ -2368,6 +2380,9 @@ static int dsi_panel_parse_misc_features(struct dsi_panel *panel)
 		panel->doze_hbm_threshold = (doze_hbm_dbv + doze_lbm_dbv) / 2;
 	else
 		panel->doze_hbm_threshold = 100;
+
+	utils->read_u32(utils->data, "mi,bl-sync-threshold",
+			&panel->bl_sync_threshold);
 
 	return 0;
 }
@@ -5003,6 +5018,7 @@ int dsi_panel_enable(struct dsi_panel *panel)
 
 	panel->doze_enabled = false;
 	panel->doze_active = DSI_PANEL_DOZE_OFF;
+	panel->bl_sync = false;
 
 error:
 	mutex_unlock(&panel->panel_lock);

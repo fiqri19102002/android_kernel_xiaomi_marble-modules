@@ -318,6 +318,8 @@ struct dsi_panel {
 
 	u32 dfps_vfp[8];
 	int dfps_vfp_count;
+
+	bool underflow_black;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)

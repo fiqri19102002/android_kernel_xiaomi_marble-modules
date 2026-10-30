@@ -2429,6 +2429,9 @@ static int dsi_panel_parse_misc_features(struct dsi_panel *panel)
 			panel->dfps_vfp_count))
 		panel->dfps_vfp_count = 0;
 
+	panel->underflow_black = utils->read_bool(utils->data,
+			"mi,underflow-color-black");
+
 	return 0;
 }
 

@@ -1363,10 +1363,10 @@ static void dsi_display_notify_panel_power_state(
 {
 	bool changed;
 
-	mutex_lock(&display->panel_power_state_lock);
+	mutex_lock(&display->display_lock);
 	changed = display->panel_power_state != value;
 	display->panel_power_state = value;
-	mutex_unlock(&display->panel_power_state_lock);
+	mutex_unlock(&display->display_lock);
 
 	if (changed)
 		sysfs_notify(&display->pdev->dev.kobj, NULL,
@@ -1379,9 +1379,9 @@ static ssize_t panel_power_state_show(struct device *dev,
 	struct dsi_display *display = dev_get_drvdata(dev);
 	u32 value;
 
-	mutex_lock(&display->panel_power_state_lock);
+	mutex_lock(&display->display_lock);
 	value = display->panel_power_state;
-	mutex_unlock(&display->panel_power_state_lock);
+	mutex_unlock(&display->display_lock);
 
 	return sysfs_emit(buf, "%u\n", value);
 }
@@ -4376,8 +4376,6 @@ static int dsi_display_res_init(struct dsi_display *display)
 		display->is_active = true;
 		display->hw_ownership = true;
 	}
-
-	mutex_init(&display->panel_power_state_lock);
 
 	display->panel_power_state = SDE_MODE_DPMS_OFF;
 	if (sysfs_create_group(&display->pdev->dev.kobj,

@@ -199,7 +199,6 @@ struct dsi_display_ext_bridge {
  * @tx_cmd_buf_ndx:   Index to the DSI debugfs TX CMD buffer.
  * @cmd_set:	      Debugfs TX cmd set.
  * @enabled:	      Boolean to indicate display enabled.
- * @panel_power_state_lock: Mutex protecting panel power state access.
  * @panel_power_state: Current panel power state reported through sysfs.
  */
 struct dsi_display {
@@ -307,7 +306,6 @@ struct dsi_display {
 
 	bool enabled;
 
-	struct mutex panel_power_state_lock;
 	u32 panel_power_state;
 };
 

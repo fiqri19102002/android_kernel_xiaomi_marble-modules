@@ -223,6 +223,12 @@ struct dsi_panel_ops {
 	int (*trigger_esd_attack)(struct dsi_panel *panel);
 };
 
+enum dsi_panel_doze {
+	DSI_PANEL_DOZE_OFF,
+	DSI_PANEL_DOZE_LBM,
+	DSI_PANEL_DOZE_HBM,
+};
+
 struct dsi_panel {
 	const char *name;
 	const char *type;
@@ -289,6 +295,12 @@ struct dsi_panel {
 	enum dsi_panel_physical_type panel_type;
 
 	struct dsi_panel_ops panel_ops;
+
+	u32 last_bl_lvl;
+	bool doze_nolp;
+	u32 doze_hbm_threshold;
+	bool doze_enabled;
+	enum dsi_panel_doze doze_active;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)

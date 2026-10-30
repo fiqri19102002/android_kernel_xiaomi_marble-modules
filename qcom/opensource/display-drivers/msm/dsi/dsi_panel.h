@@ -301,6 +301,11 @@ struct dsi_panel {
 	u32 doze_hbm_threshold;
 	bool doze_enabled;
 	enum dsi_panel_doze doze_active;
+
+	int esd_irq;
+	u32 esd_irq_flags;
+	bool esd_irq_enabled;
+	bool esd_ignore_in_doze;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
@@ -327,6 +332,8 @@ static inline bool dsi_panel_is_type_oled(struct dsi_panel *panel)
 {
 	return (panel->panel_type == DSI_DISPLAY_PANEL_TYPE_OLED);
 }
+
+void dsi_panel_esd_irq_ctrl(struct dsi_panel *panel, bool enable);
 
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node,

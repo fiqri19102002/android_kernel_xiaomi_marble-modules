@@ -564,6 +564,19 @@ static bool dsi_panel_has_doze(struct dsi_panel *panel)
 	return panel->cur_mode->priv_info->cmd_sets[DSI_CMD_SET_MI_DOZE_LBM].count;
 }
 
+static int dsi_panel_set_dbv_lp(struct dsi_panel *panel, u32 dbv)
+{
+	struct mipi_dsi_device *dsi = &panel->mipi_device;
+	unsigned long mode_flags = dsi->mode_flags;
+	int rc;
+
+	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
+	rc = mipi_dsi_dcs_set_display_brightness(dsi, dbv);
+	dsi->mode_flags = mode_flags;
+
+	return rc < 0 ? rc : 0;
+}
+
 static int dsi_panel_set_doze(struct dsi_panel *panel, bool doze)
 {
 	enum dsi_panel_doze target = DSI_PANEL_DOZE_OFF;
@@ -595,7 +608,12 @@ static int dsi_panel_set_doze(struct dsi_panel *panel, bool doze)
 		break;
 	}
 
-	rc = dsi_panel_tx_cmd_set(panel, type);
+	if (target != DSI_PANEL_DOZE_OFF && panel->doze_cmd_fps &&
+	    panel->cur_mode->timing.refresh_rate != panel->doze_cmd_fps)
+		rc = dsi_panel_set_dbv_lp(panel, panel->doze_fallback_dbv[
+				target == DSI_PANEL_DOZE_HBM ? 0 : 1]);
+	else
+		rc = dsi_panel_tx_cmd_set(panel, type);
 	if (rc)
 		DSI_ERR("[%s] failed to set doze mode %d, rc=%d\n",
 				panel->name, target, rc);
@@ -2393,6 +2411,10 @@ static int dsi_panel_parse_misc_features(struct dsi_panel *panel)
 
 	utils->read_u32_array(utils->data, "mi,power-off-delay-ms",
 			panel->power_off_delay_ms, ARRAY_SIZE(panel->power_off_delay_ms));
+
+	utils->read_u32(utils->data, "mi,doze-cmd-fps", &panel->doze_cmd_fps);
+	utils->read_u32_array(utils->data, "mi,doze-fallback-dbv",
+			panel->doze_fallback_dbv, ARRAY_SIZE(panel->doze_fallback_dbv));
 
 	return 0;
 }

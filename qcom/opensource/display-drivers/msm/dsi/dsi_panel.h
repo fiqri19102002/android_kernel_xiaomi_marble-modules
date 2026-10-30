@@ -311,6 +311,9 @@ struct dsi_panel {
 	bool bl_sync;
 
 	u32 power_off_delay_ms[2];
+
+	u32 doze_cmd_fps;
+	u32 doze_fallback_dbv[2];
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)

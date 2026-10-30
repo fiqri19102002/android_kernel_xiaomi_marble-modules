@@ -210,6 +210,7 @@ struct dsi_panel_spr_info {
 };
 
 struct dsi_panel;
+struct dsi_display_mode;
 
 struct dsi_panel_ops {
 	int (*pinctrl_init)(struct dsi_panel *panel);
@@ -314,6 +315,9 @@ struct dsi_panel {
 
 	u32 doze_cmd_fps;
 	u32 doze_fallback_dbv[2];
+
+	u32 dfps_vfp[8];
+	int dfps_vfp_count;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
@@ -346,6 +350,9 @@ void dsi_panel_esd_irq_ctrl(struct dsi_panel *panel, bool enable);
 bool dsi_panel_has_fps_gamma(struct dsi_panel *panel);
 
 void dsi_panel_fps_gamma(struct dsi_panel *panel);
+
+void dsi_panel_override_dfps_vfp(struct dsi_panel *panel,
+		struct dsi_display_mode *mode);
 
 struct dsi_panel *dsi_panel_get(struct device *parent,
 				struct device_node *of_node,

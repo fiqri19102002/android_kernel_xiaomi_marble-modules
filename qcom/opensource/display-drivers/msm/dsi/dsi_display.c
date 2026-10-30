@@ -8779,6 +8779,10 @@ int dsi_display_post_enable(struct dsi_display *display)
 				display->name, rc);
 	}
 
+	dsi_panel_acquire_panel_lock(display->panel);
+	dsi_panel_esd_irq_ctrl(display->panel, true);
+	dsi_panel_release_panel_lock(display->panel);
+
 	/* remove the clk vote for CMD mode panels */
 	if (display->config.panel_mode == DSI_OP_CMD_MODE)
 		dsi_display_clk_ctrl(display->dsi_clk_handle,
@@ -8796,6 +8800,10 @@ int dsi_display_pre_disable(struct dsi_display *display)
 		DSI_ERR("Invalid params\n");
 		return -EINVAL;
 	}
+
+	dsi_panel_acquire_panel_lock(display->panel);
+	dsi_panel_esd_irq_ctrl(display->panel, false);
+	dsi_panel_release_panel_lock(display->panel);
 
 	mutex_lock(&display->display_lock);
 

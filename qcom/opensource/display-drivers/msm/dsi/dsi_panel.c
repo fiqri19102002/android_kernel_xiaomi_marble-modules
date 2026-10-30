@@ -7,6 +7,7 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
+#include <linux/interrupt.h>
 #include <linux/of_gpio.h>
 #include <linux/pwm.h>
 #include <video/mipi_display.h>
@@ -3659,6 +3660,51 @@ error:
 	return rc;
 }
 
+static void dsi_panel_parse_esd(struct dsi_panel *panel)
+{
+	struct dsi_parser_utils *utils = &panel->utils;
+	enum of_gpio_flags flags;
+	int gpio, rc;
+
+	gpio = of_get_named_gpio_flags(utils->data, "mi,esd-err-irq-gpio", 0,
+			&flags);
+	if (!gpio_is_valid(gpio))
+		return;
+
+	rc = devm_gpio_request_one(panel->parent, gpio, GPIOF_IN,
+			"esd_err_irq_gpio");
+	if (rc) {
+		DSI_ERR("[%s] failed to request esd gpio %d, rc=%d\n",
+				panel->name, gpio, rc);
+		return;
+	}
+
+	rc = gpio_to_irq(gpio);
+	if (rc < 0)
+		return;
+
+	panel->esd_irq = rc;
+	panel->esd_irq_flags = flags;
+	panel->esd_ignore_in_doze = utils->read_bool(utils->data,
+			"mi,panel-ignore-esd-in-aod");
+}
+
+void dsi_panel_esd_irq_ctrl(struct dsi_panel *panel, bool enable)
+{
+	if (!panel->esd_irq || panel->esd_irq_enabled == enable)
+		return;
+
+	if (enable) {
+		enable_irq_wake(panel->esd_irq);
+		enable_irq(panel->esd_irq);
+	} else {
+		disable_irq_wake(panel->esd_irq);
+		disable_irq_nosync(panel->esd_irq);
+	}
+
+	panel->esd_irq_enabled = enable;
+}
+
 static void dsi_panel_update_util(struct dsi_panel *panel,
 				  struct device_node *parser_node)
 {
@@ -3822,6 +3868,8 @@ struct dsi_panel *dsi_panel_get(struct device *parent,
 	rc = dsi_panel_parse_esd_config(panel);
 	if (rc)
 		DSI_DEBUG("failed to parse esd config, rc=%d\n", rc);
+
+	dsi_panel_parse_esd(panel);
 
 	rc = dsi_panel_parse_fsc_rgb_order(panel, utils);
 	if (rc)

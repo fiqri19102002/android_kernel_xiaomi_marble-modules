@@ -306,6 +306,9 @@ struct dsi_panel {
 	u32 esd_irq_flags;
 	bool esd_irq_enabled;
 	bool esd_ignore_in_doze;
+
+	u32 bl_sync_threshold;
+	bool bl_sync;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)

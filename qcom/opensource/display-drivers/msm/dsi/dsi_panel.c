@@ -567,6 +567,11 @@ static bool dsi_panel_has_doze(struct dsi_panel *panel)
 	return panel->cur_mode->priv_info->cmd_sets[DSI_CMD_SET_MI_DOZE_LBM].count;
 }
 
+bool dsi_panel_doze_ignores_bl(struct dsi_panel *panel)
+{
+	return panel->doze_enabled && dsi_panel_has_doze(panel);
+}
+
 static int dsi_panel_set_dbv_lp(struct dsi_panel *panel, u32 dbv)
 {
 	struct mipi_dsi_device *dsi = &panel->mipi_device;
@@ -659,7 +664,7 @@ static int dsi_panel_update_backlight(struct dsi_panel *panel,
 
 	panel->last_bl_lvl = bl_lvl;
 
-	if (panel->doze_enabled && dsi_panel_has_doze(panel)) {
+	if (dsi_panel_doze_ignores_bl(panel)) {
 		if (bl_lvl)
 			dsi_panel_set_doze(panel, true);
 		goto exit;

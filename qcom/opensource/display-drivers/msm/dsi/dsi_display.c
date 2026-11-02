@@ -249,7 +249,8 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 
 	/* use bl_temp as index of dimming bl lut to find the dimming panel backlight */
 	if (bl_temp != 0 && panel->bl_config.dimming_bl_lut &&
-	    bl_temp < panel->bl_config.dimming_bl_lut->length) {
+	    bl_temp < panel->bl_config.dimming_bl_lut->length &&
+	    !dsi_panel_doze_ignores_bl(panel)) {
 		DSI_DEBUG("before dimming bl_temp = %u, after dimming bl_temp = %lu\n",
 			bl_temp, panel->bl_config.dimming_bl_lut->mapped_bl[bl_temp]);
 		bl_temp = panel->bl_config.dimming_bl_lut->mapped_bl[bl_temp];
@@ -1373,6 +1374,18 @@ static void dsi_display_notify_panel_power_state(
 			"panel_power_state");
 }
 
+/* Called after power mode changes, which may stop or start using the backlight */
+static void dsi_display_update_dimming(struct dsi_display *display)
+{
+	bool off = dsi_panel_doze_ignores_bl(display->panel);
+
+	if (!display->drm_conn || off == display->dimming_off)
+		return;
+
+	display->dimming_off = off;
+	sde_connector_resend_dimming_bl(display->drm_conn);
+}
+
 static ssize_t panel_power_state_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -1434,6 +1447,7 @@ int dsi_display_set_power(struct drm_connector *connector,
 	if (!rc) {
 		display->panel->power_mode = power_mode;
 		dsi_display_notify_panel_power_state(display, power_mode);
+		dsi_display_update_dimming(display);
 	}
 
 	return rc;
@@ -8788,6 +8802,7 @@ int dsi_display_post_enable(struct dsi_display *display)
 	dsi_panel_acquire_panel_lock(display->panel);
 	dsi_panel_esd_irq_ctrl(display->panel, true);
 	dsi_panel_release_panel_lock(display->panel);
+	dsi_display_update_dimming(display);
 
 	/* remove the clk vote for CMD mode panels */
 	if (display->config.panel_mode == DSI_OP_CMD_MODE)

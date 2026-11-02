@@ -309,6 +309,8 @@ struct dsi_display {
 
 	struct mutex panel_power_state_lock;
 	u32 panel_power_state;
+
+	bool dimming_off;
 };
 
 int dsi_display_dev_probe(struct platform_device *pdev);

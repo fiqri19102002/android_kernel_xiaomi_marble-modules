@@ -49,7 +49,7 @@
 #include <linux/spi/spi.h>
 #include "../qts/qts_core_common.h"
 
-#include "../xiaomi/xiaomi_touch.h"
+#include "xiaomi_touch.h"
 
 #define GOODIX_CORE_DRIVER_NAME			"goodix_ts"
 #define GOODIX_PEN_DRIVER_NAME			"goodix_ts,pen"

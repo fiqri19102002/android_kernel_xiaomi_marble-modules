@@ -1103,7 +1103,8 @@ static int cam_ife_csid_ver2_rx_err_bottom_half(
 			p = soc_info->dev->of_node->name;
 			p += strlen(soc_info->dev->of_node->name) - 1;
 			if (p) {
-				kstrtou8(p, 0, &phy_index);
+				if (kstrtou8(p, 0, &phy_index))
+					phy_index = 0;
 				CAM_INFO(CAM_ISP, "PHY_CRC_ERROR phy_index[%d]", phy_index);
 				soc_info->phy_cfg_current_index[phy_index]++;
 				if (soc_info->phy_cfg_current_index[phy_index] >= 0xF) {

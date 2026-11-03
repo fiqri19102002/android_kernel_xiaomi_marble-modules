@@ -245,6 +245,24 @@ def define_lahaina(t,v):
         ],
 )
 
+def define_waipio(t,v):
+    define_target_variant_modules(
+        target = t,
+        variant = v,
+        registry = touch_driver_modules,
+        modules = [
+            "goodix_ts",
+            "qts",
+        ],
+        config_options = [
+            "TOUCH_DLKM_ENABLE",
+            "CONFIG_ARCH_WAIPIO",
+            "CONFIG_MSM_TOUCH",
+            "CONFIG_QTS_ENABLE",
+            "CONFIG_TOUCHSCREEN_GOODIX_BRL",
+        ],
+)
+
 def define_monaco(t,v):
     define_target_variant_modules(
         target = t,
@@ -304,5 +322,7 @@ def define_touch_target():
             define_vienna(t, v)
         elif t == "art":
             define_art(t, v)
+        elif t == "waipio":
+            define_waipio(t, v)
         else:
             pass

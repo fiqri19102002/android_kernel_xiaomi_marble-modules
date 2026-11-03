@@ -989,7 +989,8 @@ static int cam_csiphy_cphy_reconfig_work(struct csiphy_device *csiphy_device, st
 		if (strcmp(csiphy_device->phy_dts_name, "qcom,csiphy-v2.1.3-m16t") == 0) {
 			p = csiphy_device->device_name;
 			p += strlen(csiphy_device->device_name) - 1;
-			kstrtou8(p, 0, &phy_index);
+			if (kstrtou8(p, 0, &phy_index))
+				phy_index = 0;
 			XM_MIPI_KMD_GET_CTRL_FLAG_VAL(phy_index, &phy_flag, &phy_val);
 			CAM_INFO(CAM_ISP, "phy_index[%d], flag=[%d], val=[%d], max_choice[%d]", phy_index, phy_flag, phy_val, drate_settings->this_setting_max_choice);
 			if (phy_flag) {

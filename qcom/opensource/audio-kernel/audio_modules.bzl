@@ -398,6 +398,22 @@ audio_modules.register(
         "wsa883x-tables.c",
     ],
 )
+# >>>> AW882XX MODULE <<<<
+audio_modules.register(
+    name = "aw882xx_dlkm",
+    path = ASOC_CODECS_PATH + "/aw882xx",
+    config_option = "CONFIG_SND_SOC_AW882XX",
+    srcs = [
+        "aw882xx.c",
+        "aw882xx_bin_parse.c",
+        "aw882xx_calib.c",
+        "aw882xx_device.c",
+        "aw882xx_dsp.c",
+        "aw882xx_init.c",
+        "aw882xx_monitor.c",
+        "aw882xx_spin.c",
+    ],
+)
 # >>>> WSA884X MODULE <<<<
 audio_modules.register(
     name = "wsa884x_dlkm",

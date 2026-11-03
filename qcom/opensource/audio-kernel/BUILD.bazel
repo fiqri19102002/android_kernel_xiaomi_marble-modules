@@ -39,6 +39,13 @@ ddk_headers(
     ])
 )
 ddk_headers(
+    name = "aw882xx_headers",
+    hdrs = glob([
+        "asoc/codecs/aw882xx/*.h"
+    ]),
+    includes = ["asoc/codecs/aw882xx"]
+)
+ddk_headers(
     name = "audio_configs",
     hdrs = glob([
         "config/*.h"
@@ -47,7 +54,7 @@ ddk_headers(
 )
 ddk_headers(
     name = "audio_headers",
-    hdrs = [":audio_common_headers",  ":audio_uapi_headers", ":audio_src_headers", ":audio_configs"]
+    hdrs = [":audio_common_headers",  ":audio_uapi_headers", ":audio_src_headers", ":audio_configs", ":aw882xx_headers"]
 )
 
 load(":build/parrot.bzl", "define_parrot")

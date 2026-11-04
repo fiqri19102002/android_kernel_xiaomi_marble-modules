@@ -148,6 +148,7 @@ static int aw_monitor_get_temp_and_vol(struct aw_device *aw_dev)
 {
 	int ret = -1;
 	struct aw_monitor_desc *monitor = &aw_dev->monitor_desc;
+	struct aw_monitor_cfg *monitor_cfg = &monitor->monitor_cfg;
 	unsigned int voltage = 0;
 	int current_temp = 0;
 
@@ -168,13 +169,17 @@ static int aw_monitor_get_temp_and_vol(struct aw_device *aw_dev)
 		current_temp = monitor->test_temp;
 	}
 #else
-	ret = aw_monitor_get_voltage(aw_dev, &voltage);
-	if (ret < 0)
-		return ret;
+	if (monitor_cfg->vol_switch) {
+		ret = aw_monitor_get_voltage(aw_dev, &voltage);
+		if (ret < 0)
+			return ret;
+	}
 
-	ret = aw_monitor_get_temperature(aw_dev, &current_temp);
-	if (ret < 0)
-		return ret;
+	if (monitor_cfg->temp_switch) {
+		ret = aw_monitor_get_temperature(aw_dev, &current_temp);
+		if (ret < 0)
+			return ret;
+	}
 #endif
 
 	monitor->vol_trace.sum_val += voltage;

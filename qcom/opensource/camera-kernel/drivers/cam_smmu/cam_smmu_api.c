@@ -3756,7 +3756,7 @@ static void cam_smmu_deinit_cb(struct cam_context_bank_info *cb)
 	if (cb->io_support && cb->domain)
 		cb->domain = NULL;
 
-	if (cb->shared_support) {
+	if (cb->shared_mem_pool) {
 		gen_pool_destroy(cb->shared_mem_pool);
 		cb->shared_mem_pool = NULL;
 	}

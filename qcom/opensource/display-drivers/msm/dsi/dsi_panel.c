@@ -2902,6 +2902,9 @@ static int dsi_panel_parse_dsc_params(struct dsi_display_mode *mode,
 	priv_info->dsc.config.slice_count = DIV_ROUND_UP(intf_width,
 		priv_info->dsc.config.slice_width);
 
+	priv_info->dsc.legacy_widebus_pclk = utils->read_bool(utils->node,
+		"mi,dsc-legacy-widebus-pclk");
+
 	rc = sde_dsc_populate_dsc_config(&priv_info->dsc.config,
 			priv_info->dsc.scr_rev);
 	if (rc) {

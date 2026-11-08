@@ -3251,6 +3251,8 @@ static void sde_encoder_populate_encoder_phys(struct drm_encoder *drm_enc,
 				comp_info->dsc_info.pclk_per_line;
 			phys->dsc_extra_disp_width =
 				comp_info->dsc_info.extra_width;
+			phys->dsc_legacy_pclk =
+				comp_info->dsc_info.legacy_widebus_pclk;
 			phys->dce_bytes_per_line =
 				comp_info->dsc_info.bytes_per_pkt *
 				comp_info->dsc_info.pkt_per_line;

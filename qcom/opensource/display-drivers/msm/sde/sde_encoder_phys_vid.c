@@ -162,10 +162,17 @@ static void drm_mode_to_intf_timing_params(
 			(vid_enc->base.comp_type ==
 			MSM_DISPLAY_COMPRESSION_VDC))) {
 		// adjust active dimensions
-		width = drm_fixp_from_fraction(timing->width, 1);
-		comp_ratio = drm_fixp_from_fraction(vid_enc->base.comp_ratio, 100);
-		width = drm_fixp_div(width, comp_ratio);
-		timing->width = drm_fixp2int_ceil(width);
+		if (vid_enc->base.comp_type == MSM_DISPLAY_COMPRESSION_DSC &&
+				vid_enc->base.dsc_legacy_pclk &&
+				vid_enc->base.dce_bytes_per_line) {
+			/* match the DSI pclk_per_line: compressed bytes / 3 */
+			timing->width = DIV_ROUND_UP(vid_enc->base.dce_bytes_per_line, 3);
+		} else {
+			width = drm_fixp_from_fraction(timing->width, 1);
+			comp_ratio = drm_fixp_from_fraction(vid_enc->base.comp_ratio, 100);
+			width = drm_fixp_div(width, comp_ratio);
+			timing->width = drm_fixp2int_ceil(width);
+		}
 		timing->xres = timing->width;
 	}
 

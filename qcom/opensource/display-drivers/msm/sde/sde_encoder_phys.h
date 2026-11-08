@@ -366,6 +366,7 @@ struct sde_encoder_phys {
 	enum msm_display_compression_type comp_type;
 	u32 comp_ratio;
 	u32 dsc_extra_pclk_cycle_cnt;
+	bool dsc_legacy_pclk;
 	u32 dsc_extra_disp_width;
 	bool poms_align_vsync;
 	u32 dce_bytes_per_line;

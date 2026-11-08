@@ -406,7 +406,7 @@ int sde_dsc_populate_dsc_private_params(struct msm_display_dsc_info *dsc_info,
 	 * In NON-DATABUS-WIDEN mode, MDP always sends out 24-bit compressed data per
 	 * pclk and DSI always consumes 24-bit compressed data per pclk.
 	 */
-	if (widebus_en)
+	if (widebus_en && !dsc_info->legacy_widebus_pclk)
 		dsc_info->pclk_per_line = DIV_ROUND_UP(total_bytes_per_intf * 8,
 				msm_get_src_bpc(dsc_info->chroma_format, bpc));
 	else

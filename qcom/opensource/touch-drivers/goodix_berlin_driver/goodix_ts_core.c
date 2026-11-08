@@ -1904,9 +1904,15 @@ static int goodix_ts_resume(struct goodix_ts_core *core_data)
 
 	ts_info("Resume start");
 	atomic_set(&core_data->suspended, 0);
-	hw_ops->irq_enable(core_data, false);
 
+	/*
+	 * A gesture work queued while suspended may still be running and
+	 * enable the irq again, wait for it before disabling the irq.
+	 */
 	cancel_delayed_work_sync(&core_data->gesture_work);
+
+	if (atomic_read(&core_data->irq_enabled))
+		hw_ops->irq_enable(core_data, false);
 
 	mutex_lock(&goodix_modules.mutex);
 	if (!list_empty(&goodix_modules.head)) {
@@ -1986,6 +1992,7 @@ static void goodix_set_gesture_work(struct work_struct *work)
 		core_data->nonui_enabled ? 0 : core_data->gesture_type;
 
 	if (target_gesture_type == 0) {
+		goodix_ts_set_irq_wake(core_data, false);
 		hw_ops->irq_enable(core_data, false);
 		hw_ops->gesture(core_data, 0);
 		goto exit;
@@ -2002,9 +2009,10 @@ static void goodix_set_gesture_work(struct work_struct *work)
 		ts_err("failed enter gesture mode");
 		goto exit;
 	} else {
-		ts_err("enter gesture mode");
+		ts_info("enter gesture mode");
 	}
 	hw_ops->irq_enable(core_data, true);
+	goodix_ts_set_irq_wake(core_data, true);
 
 exit:
 	pm_relax(core_data->bus->dev);

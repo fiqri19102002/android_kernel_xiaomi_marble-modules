@@ -577,7 +577,25 @@ struct goodix_ts_core {
 
 	bool nonui_enabled;
 	bool high_report_rate;
+	bool irq_wake_enabled;
 };
+
+/*
+ * The gesture type can change while the touch is suspended, so keep track
+ * of the irq wake state instead of assuming it from the gesture type.
+ */
+static inline void goodix_ts_set_irq_wake(struct goodix_ts_core *cd,
+					  bool enable)
+{
+	int ret;
+
+	if (cd->irq_wake_enabled == enable)
+		return;
+
+	ret = enable ? enable_irq_wake(cd->irq) : disable_irq_wake(cd->irq);
+	if (!ret)
+		cd->irq_wake_enabled = enable;
+}
 
 /* external module structures */
 enum goodix_ext_priority {

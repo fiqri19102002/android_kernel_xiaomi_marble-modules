@@ -2087,31 +2087,31 @@ def _define_module_for_target_variant_chipset(target, variant, chipset):
     kconfig = "Kconfig"
     defconfig = ":configs/{}_defconfig_generate_{}".format(tvc, variant)
 
-    deps = ["//vendor/qcom/kernel:all_headers"]
+    deps = ["//vendor/xiaomi/marble-kernel:all_headers"]
 
     if chipset == "qca6750" or chipset == "wlan" or chipset == "adrastea":
         deps += [
-            "//vendor/qcom/sm8450-modules/qcom/opensource/wlan/platform:{}_icnss2".format(tv),
+            "//vendor/xiaomi/marble-modules/qcom/opensource/wlan/platform:{}_icnss2".format(tv),
         ]
     else:
         deps += [
-            "//vendor/qcom/sm8450-modules/qcom/opensource/wlan/platform:{}_cnss2".format(tv),
+            "//vendor/xiaomi/marble-modules/qcom/opensource/wlan/platform:{}_cnss2".format(tv),
         ]
 
     deps = deps + [
-        "//vendor/qcom/sm8450-modules/qcom/opensource/wlan/platform:{}_cnss_prealloc".format(tv),
-        "//vendor/qcom/sm8450-modules/qcom/opensource/wlan/platform:{}_cnss_utils".format(tv),
-        "//vendor/qcom/sm8450-modules/qcom/opensource/wlan/platform:{}_cnss_nl".format(tv),
-        "//vendor/qcom/sm8450-modules/qcom/opensource/wlan/platform:wlan-platform-headers",
+        "//vendor/xiaomi/marble-modules/qcom/opensource/wlan/platform:{}_cnss_prealloc".format(tv),
+        "//vendor/xiaomi/marble-modules/qcom/opensource/wlan/platform:{}_cnss_utils".format(tv),
+        "//vendor/xiaomi/marble-modules/qcom/opensource/wlan/platform:{}_cnss_nl".format(tv),
+        "//vendor/xiaomi/marble-modules/qcom/opensource/wlan/platform:wlan-platform-headers",
     ]
 
     if target != "lahaina" and target != "parrot" and target != "malabar":
         deps = deps + [
-            "//vendor/qcom/sm8450-modules/qcom/opensource/dataipa:include_headers",
-            "//vendor/qcom/sm8450-modules/qcom/opensource/dataipa:{}_{}_ipam".format(target, variant),
+            "//vendor/xiaomi/marble-modules/qcom/opensource/dataipa:include_headers",
+            "//vendor/xiaomi/marble-modules/qcom/opensource/dataipa:{}_{}_ipam".format(target, variant),
         ]
 
-    kernel_build = "//vendor/qcom/kernel:{}".format(tv)
+    kernel_build = "//vendor/xiaomi/marble-kernel:{}".format(tv)
 
     print("name= ", name)
     print("hw= ", hw)

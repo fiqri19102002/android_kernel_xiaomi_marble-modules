@@ -59,9 +59,9 @@ def define_target_variant_modules(target, variant, registry, modules, config_opt
 
     deps = []
     all_module_deps = [
-        "//vendor/qcom/kernel:all_headers",
+        "//vendor/xiaomi/marble-kernel:all_headers",
     ]
-    kernel_build_label = "//vendor/qcom/kernel:{}".format(kernel_build)
+    kernel_build_label = "//vendor/xiaomi/marble-kernel:{}".format(kernel_build)
 
     modules = [registry.get(module_name) for module_name in modules]
     options = _get_kernel_build_options(modules, config_options)

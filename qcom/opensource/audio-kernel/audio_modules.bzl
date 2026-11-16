@@ -404,14 +404,14 @@ audio_modules.register(
     path = ASOC_CODECS_PATH + "/aw882xx",
     config_option = "CONFIG_SND_SOC_AW882XX",
     srcs = [
-        "src/aw882xx.c",
-        "src/aw882xx_bin_parse.c",
-        "src/aw882xx_calib.c",
-        "src/aw882xx_device.c",
-        "src/aw882xx_dsp.c",
-        "src/aw882xx_init.c",
-        "src/aw882xx_monitor.c",
-        "src/aw882xx_spin.c",
+        "aw882xx.c",
+        "aw882xx_bin_parse.c",
+        "aw882xx_calib.c",
+        "aw882xx_device.c",
+        "aw882xx_dsp.c",
+        "aw882xx_init.c",
+        "aw882xx_monitor.c",
+        "aw882xx_spin.c",
     ],
 )
 # >>>> WSA884X MODULE <<<<

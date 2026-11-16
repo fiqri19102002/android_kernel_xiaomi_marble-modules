@@ -3732,13 +3732,20 @@ error:
 static void dsi_panel_parse_esd(struct dsi_panel *panel)
 {
 	struct dsi_parser_utils *utils = &panel->utils;
-	enum of_gpio_flags flags;
+	struct of_phandle_args args;
+	u32 flags = 0;
 	int gpio, rc;
 
-	gpio = of_get_named_gpio_flags(utils->data, "mi,esd-err-irq-gpio", 0,
-			&flags);
+	gpio = of_get_named_gpio(utils->data, "mi,esd-err-irq-gpio", 0);
 	if (!gpio_is_valid(gpio))
 		return;
+
+	if (!of_parse_phandle_with_args(utils->data, "mi,esd-err-irq-gpio",
+			"#gpio-cells", 0, &args)) {
+		if (args.args_count > 1)
+			flags = args.args[1];
+		of_node_put(args.np);
+	}
 
 	rc = devm_gpio_request_one(panel->parent, gpio, GPIOF_IN,
 			"esd_err_irq_gpio");

@@ -80,7 +80,7 @@ static int aw_cali_get_read_cali_re(struct aw_device *aw_dev, int32_t *cali_re,
 	pos = AW_INT_DEC_DIGIT * channel;
 
 	if (fw->size < pos + AW_INT_DEC_DIGIT) {
-		aw_pr_err("invalid firmware size: %d, channel: %d, pos: %d",
+		aw_pr_err("invalid firmware size: %zu, channel: %d, pos: %lld",
 		       fw->size, channel, pos);
 		release_firmware(fw);
 		return -EINVAL;

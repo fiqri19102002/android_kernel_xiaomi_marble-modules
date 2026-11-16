@@ -3297,10 +3297,6 @@ static int aw882xx_i2c_remove(struct i2c_client *i2c)
 			gpio_to_irq(aw882xx->irq_gpio),
 			aw882xx);
 
-	/*free gpio*/
-	if (gpio_is_valid(aw882xx->spksw_gpio))
-		devm_gpio_free(&i2c->dev, aw882xx->spksw_gpio);
-
 	/*rm attr node*/
 	sysfs_remove_group(&i2c->dev.kobj, &aw882xx_attribute_group);
 

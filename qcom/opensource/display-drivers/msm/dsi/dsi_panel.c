@@ -2388,6 +2388,9 @@ static int dsi_panel_parse_misc_features(struct dsi_panel *panel)
 	panel->underflow_black = utils->read_bool(utils->data,
 			"mi,underflow-color-black");
 
+	panel->disable_dimming_bl = utils->read_bool(utils->data,
+			"mi,disable-dimming-bl");
+
 	return 0;
 }
 
@@ -2688,8 +2691,14 @@ static int dsi_panel_parse_bl_config(struct dsi_panel *panel)
 	panel->bl_config.bl_scale = MAX_BL_SCALE_LEVEL;
 	panel->bl_config.bl_scale_sv = MAX_SV_BL_SCALE_LEVEL;
 	panel->bl_config.dimming_min_bl = 0;
-	panel->bl_config.dimming_status = DIMMING_ENABLE;
-	panel->bl_config.user_disable_notification = false;
+
+	if (!panel->disable_dimming_bl) {
+		panel->bl_config.dimming_status = DIMMING_ENABLE;
+		panel->bl_config.user_disable_notification = false;
+	} else {
+		panel->bl_config.dimming_status &= ~DIMMING_ENABLE;
+		panel->bl_config.user_disable_notification = true;
+	}
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-bl-min-level", &val);
 	if (rc) {

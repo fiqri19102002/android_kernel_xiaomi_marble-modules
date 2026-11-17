@@ -307,6 +307,8 @@ struct dsi_panel {
 	int dfps_vfp_count;
 
 	bool underflow_black;
+
+	bool disable_dimming_bl;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)

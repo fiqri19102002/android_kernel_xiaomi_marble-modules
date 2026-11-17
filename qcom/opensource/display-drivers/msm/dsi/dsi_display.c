@@ -257,7 +257,7 @@ int dsi_display_set_backlight(struct drm_connector *connector,
 
 	/* use bl_temp as index of dimming bl lut to find the dimming panel backlight */
 	if (bl_temp != 0 && panel->bl_config.dimming_bl_lut &&
-	    bl_temp < panel->bl_config.dimming_bl_lut->length) {
+	    bl_temp < panel->bl_config.dimming_bl_lut->length && !panel->disable_dimming_bl) {
 		DSI_DEBUG("before dimming bl_temp = %llu, after dimming bl_temp = %u\n",
 			bl_temp, panel->bl_config.dimming_bl_lut->mapped_bl[bl_temp]);
 		bl_temp = panel->bl_config.dimming_bl_lut->mapped_bl[bl_temp];

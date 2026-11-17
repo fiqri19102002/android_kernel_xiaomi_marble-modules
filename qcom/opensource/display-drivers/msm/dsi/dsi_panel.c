@@ -571,10 +571,12 @@ static int dsi_panel_set_dbv_lp(struct dsi_panel *panel, u32 dbv)
 {
 	struct mipi_dsi_device *dsi = &panel->mipi_device;
 	unsigned long mode_flags = dsi->mode_flags;
-	int rc;
+	u8 payload[2] = { dbv >> 8, dbv & 0xff };
+	ssize_t rc;
 
 	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
-	rc = mipi_dsi_dcs_set_display_brightness(dsi, dbv);
+	rc = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
+				payload, sizeof(payload));
 	dsi->mode_flags = mode_flags;
 
 	return rc < 0 ? rc : 0;
